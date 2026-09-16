@@ -1,0 +1,201 @@
+Create ONE EXECUTIVE SINGLE-SLIDE INFOGRAPHIC image in a professional semiconductor engineering dashboard style.
+
+TITLE:
+DSA PARAMETER SHIFT ANALYSIS
+{OLD_PROGRAM} vs {NEW_PROGRAM}
+
+SUBTITLE:
+Stage:  {OLD_STAGE} ->{NEW_STAGE}
+Program Comparison Summary
+Focus on Shift Behavior and Category Risk Assessment
+
+STYLE
+• Executive semiconductor dashboard
+• NXP / Automotive / Product Engineering review style
+• Dark navy blue gradient background
+• White typography
+• Cyan and green accent colors
+• Professional KPI cards
+• High information density
+• Clean engineering layout
+• Corporate PowerPoint quality
+• Presentation-ready
+• No decorative financial graphics
+• Modern ATE validation report design
+• Crisp engineering charts and tables
+• Executive readability
+
+IMPORTANT RULES:
+- DO NOT create sample numbers.
+- DO NOT estimate counts.
+- All counts, percentages, Pareto values, and totals must come directly from the CSV analysis.
+- Remove any fake date.
+- Use "Data Source: DSA Compare CSV" instead of a report date.
+- Dark blue semiconductor dashboard theme.
+- Executive management presentation quality.
+- 16:9 landscape format.
+- Clean, modern, automotive semiconductor style.
+- Red = Critical
+- Orange = Major
+- Yellow = Warning
+- Green = Acceptable
+
+LAYOUT:
+
+--------------------------------------------------
+TOP HEADER
+--------------------------------------------------
+
+Program Transition:
+SAF85xx_WTTP79R14 → SAF85xx_WTTP79R25
+
+Stage:
+WH1
+
+Metrics:
+- Total Parameters
+- Total Shifted Parameters
+- Total Full Shift
+- Total Median Shift
+
+--------------------------------------------------
+LEFT PANEL
+CATEGORY PARETO
+--------------------------------------------------
+
+Title:
+DSA CATEGORY PARETO
+
+Show ONLY:
+Cat A
+Cat B
+Cat C
+
+For each category:
+- Count
+- Percentage
+- Pareto %
+
+Horizontal Pareto bars.
+
+Highlight:
+Cat A = Highest Severity
+Cat B = Major Concern
+Cat C = Significant Shift
+
+Executive summary badge:
+"A+B+C Impact"
+
+--------------------------------------------------
+CENTER PANEL
+CRITICAL SHIFT MATRIX
+--------------------------------------------------
+
+Title:
+A / B / C SHIFT PRIORITY MATRIX
+
+2 Sections:
+
+1. FULL SHIFT
+Show:
+Cat A Count
+Cat B Count
+Cat C Count
+Total Full Shift
+
+2. MEDIAN SHIFT
+Show:
+Cat A Count
+Cat B Count
+Cat C Count
+Total Median Shift
+
+Large visual comparison:
+FULL SHIFT vs MEDIAN SHIFT
+
+Use red emphasis.
+
+Key statement:
+"Full Shift and Median Shift are the primary risk drivers."
+
+--------------------------------------------------
+BOTTOM CENTER PANEL
+TOP CONTRIBUTORS
+--------------------------------------------------
+
+Title:
+TOP A/B/C CONTRIBUTORS
+
+DO NOT use CPK.
+
+Rank the Top 10 Contributors using:
+
+Test Name
+Stage
+Category
+Shift Type
+
+Only include:
+- Cat A
+- Cat B
+- Cat C
+
+Prefer:
+Full Shift
+Median Shift
+
+Display as ranked bars.
+
+--------------------------------------------------
+RIGHT PANEL
+EXECUTIVE RISK INSIGHTS
+--------------------------------------------------
+
+Title:
+CRITICAL FINDINGS
+
+Show:
+
+1.
+Highest Full Shift Category
+
+2.
+Highest Median Shift Category
+
+3.
+Top Program Domain
+(example: LOIF, ATB_ADC, PLL, LDO, RX, TX)
+
+4.
+Highest Risk Test Item
+
+5.
+Recommended Engineering Focus
+
+Red callout box:
+
+"Immediate Attention Required:
+Cat A/B/C Full Shift and Median Shift Parameters"
+
+--------------------------------------------------
+BOTTOM EXECUTIVE TAKEAWAYS
+--------------------------------------------------
+
+Create 4 bullets:
+
+• Total A/B/C impact
+• Full Shift contribution
+• Median Shift contribution
+• Recommended engineering actions
+
+Use concise executive language suitable for VP / Director review.
+
+STYLE:
+- Semiconductor yield dashboard
+- Automotive IC quality review
+- Executive summary format
+- Professional, high-density infographic
+- No placeholder values
+- No fake dates
+- No CPK section
+- Focus exclusively on A/B/C categories, Full Shift, and Median Shift behavior.

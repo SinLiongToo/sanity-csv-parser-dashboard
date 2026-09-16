@@ -1,0 +1,8 @@
+Comparison,Test_Name,Status,OLD_Stage,OLD_Program,NEW_Stage,NEW_Program,OLD_Test_Num,NEW_Test_Num,OLD_LSL,NEW_LSL,OLD_USL,NEW_USL,OLD_Units,NEW_Units,Description
+OLD_vs_NEW,Clock_MHz,Number Change,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,1030,2030,90.0,90.0,110.0,110.0,MHz,MHz,Number: 1030 -> 2030
+OLD_vs_NEW,Rst_V,Unit Change,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,1060,1060,3.0,3000.0,3.6,3600.0,V,mV,"Limits: [3.0, 3.6] -> [3000.0, 3600.0], Unit: 'V' -> 'mV'"
+OLD_vs_NEW,Standby_uA,Limit Change,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,1020,1020,0.0,1.0,9.0,10.0,uA,uA,"Limits: [0.0, 9.0] -> [1.0, 10.0]"
+OLD_vs_NEW,VCC_mA,Match,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,1010,1010,13.0,13.0,17.0,17.0,mA,mA,All properties match.
+OLD_vs_NEW,VRef_V -> VRef_Volts,Name Change,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,1040,1040,1.2,1.2,1.3,1.3,V,V,Name changed. Name: 'VRef_V' -> 'VRef_Volts'
+OLD_vs_NEW,Temp_Sensor_C,Added,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,,1080,,20.0,,50.0,,C,Test item added in NEW (missing in OLD).
+OLD_vs_NEW,IDD_Pass,Removed,CP1,MAIN_PROG_REV_A,CP1,MAIN_PROG_REV_A,1070,,1.0,,1.0,,bool,,Test item removed in NEW (missing in NEW).

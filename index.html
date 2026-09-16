@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Semiconductor Sanity & Shift Analysis Executive Dashboard</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              700: '#20335e',
+              800: '#111d38',
+              900: '#080e1e',
+              950: '#050914'
+            },
+            cyan: {
+              400: '#00e5ff',
+              500: '#00b4d8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PptxGenJS for PowerPoint Generation -->
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+  <!-- FULLSCREEN DRAG & DROP OVERLAY -->
+  <div id="dragOverlay" class="drag-fullscreen-overlay hidden">
+    <div class="drag-fullscreen-content">
+      <span class="text-6xl animate-bounce block mb-2">📁</span>
+      <h2 class="text-2xl font-bold text-cyan">Drop CSV Files Here to Analyze</h2>
+      <p class="text-sm text-gray-300 mt-1">Auto-detects Repeatability, TSR Summary, Item Compare, DSA Shift, and Bin Yield CSVs</p>
+    </div>
+  </div>
+
+  <!-- TOP HEADER -->
+  <header class="top-nav">
+    <div class="brand-section">
+      <div class="brand-logo">μC</div>
+      <div class="brand-title">
+        <h1>SEMICONDUCTOR SANITY CHECK & SHIFT ANALYZER</h1>
+        <p id="headerSubTitle">DATA ANALYSIS EXECUTIVE DASHBOARD • ATE VALIDATION PLATFORM @ Masa Tu • Updated: 2026-09-10 14:10:23</p>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <div class="program-badge" id="headerProgramBadge">
+        <span class="text-cyan font-mono font-bold">[CP1] MAIN_PROG_REV_A</span>
+        <span class="text-gray-400 mx-2">➔</span>
+        <span class="text-emerald-400 font-mono font-bold">[CP1] MAIN_PROG_REV_A</span>
+      </div>
+
+      <div class="updated-badge" id="headerLastUpdated" title="Last Analysis / Update Timestamp">
+        <span class="text-cyan text-xs">🕒</span>
+        <span class="text-xs font-mono font-medium text-gray-300" id="headerTimestamp">Updated: --</span>
+      </div>
+
+      <button id="btnTestIgnore" class="btn btn-secondary flex items-center gap-1.5" onclick="window.app.openTestIgnoreModal()" title="Configure Test Ignore Rules (e.g. not pux, not dummy)">
+        <span>🚫</span> <span class="hidden sm:inline">Test Ignore</span>
+        <span id="testIgnoreBadge" class="status-pill pill-amber hidden text-[10px] font-mono">0 Ignored</span>
+      </button>
+      <button id="btnThemeToggle" class="theme-toggle-btn" title="Toggle Light / Dark Mode">
+        <span id="themeToggleIcon">☀️</span> <span id="themeToggleText">Light</span>
+      </button>
+      <button id="btnExportPptx" class="btn btn-primary" title="Export 16:9 Presentation Slides">
+        📊 Export PPTX
+      </button>
+      <button id="btnExportPdf" class="btn btn-secondary" title="Export PDF / Print Report">
+        📄 Export PDF
+      </button>
+      <button id="btnResetData" class="btn btn-subtle" title="Reload Default Data">
+        🔄 Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- DRAG & DROP UPLOAD BAR WITH LIVE STATUS & PROGRESS -->
+  <div class="dropzone-banner" id="dropZone">
+    <div class="dropzone-header">
+      <div class="dropzone-content">
+        <span class="text-xl">📁</span>
+        <span><b>Drag & Drop CSV files anywhere</b> (Repeatability, TSR Summary, Item Compare, DSA Shift, Bin Yield) or <strong>Click to Upload</strong>.</span>
+      </div>
+      <span class="text-xs text-cyan font-mono font-bold" id="dropzoneStatusText">⚡ Auto-detects schema & switches tab</span>
+      <input type="file" id="csvFileInput" multiple accept=".csv,.txt" class="hidden">
+    </div>
+
+    <!-- Live Upload & Parsing Progress Banner (Hidden by default, shown during load) -->
+    <div id="uploadProgressBanner" class="upload-progress-banner hidden">
+      <div class="flex items-center gap-3">
+        <span class="loading-spinner"></span>
+        <span id="uploadProgressText" class="text-xs font-bold text-white">Reading and analyzing CSV...</span>
+      </div>
+      <div class="w-48 bg-navy-900 h-2 rounded-full overflow-hidden border border-navy-700">
+        <div id="uploadProgressBar" class="bg-cyan h-full transition-all duration-200" style="width: 100%;"></div>
+      </div>
+    </div>
+
+    <!-- Loaded Datasets Status Strip (Real-time active file badges) -->
+    <div class="loaded-datasets-strip" id="loadedDatasetsStrip">
+      <!-- Dynamically populated with loaded dataset pills -->
+    </div>
+  </div>
+
+  <!-- POWER BI TAB NAVIGATION -->
+  <nav class="tab-bar">
+    <button class="nav-tab active" data-tab="overview">
+      <span>📊</span> Executive Overview
+    </button>
+    <button class="nav-tab" data-tab="item">
+      <span>🔍</span> Item Sanity Check
+    </button>
+    <button class="nav-tab" data-tab="dsa">
+      <span>⚡</span> DSA Parameter Shift
+    </button>
+    <button class="nav-tab" data-tab="bin">
+      <span>🏷️</span> Bin & Yield Compare
+    </button>
+    <button class="nav-tab" data-tab="tsr">
+      <span>📈</span> TSR Test Summary
+    </button>
+    <button class="nav-tab" data-tab="repeatability">
+      <span>🔁</span> Repeatability Analysis
+    </button>
+    <button class="nav-tab" data-tab="explorer">
+      <span>🔬</span> Trace Explorer
+    </button>
+    <button class="nav-tab" data-tab="help">
+      <span>❓</span> Help & Documentation
+    </button>
+  </nav>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="main-container">
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: EXECUTIVE OVERVIEW -->
+    <!-- ===================================================================== -->
+    <section id="tab-overview" class="tab-content active">
+      <!-- High Level Assessment Hero -->
+      <div class="card mb-4 border-l-4 border-cyan-400">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-cyan">Engineering Assessment</div>
+            <div class="flex items-center gap-3 mt-1">
+              <span id="overviewAssessmentBadge" class="status-pill pill-green text-sm px-3 py-1 font-bold">PASS</span>
+              <h2 class="text-lg font-bold text-white">Program Revision Migration Status</h2>
+            </div>
+            <p id="overviewAssessmentText" class="text-xs text-gray-400 mt-1 max-w-3xl">
+              Evaluating program sanity check and parameter drift metrics across test stages.
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-gray-400">Report Snapshot</div>
+            <div id="overviewSnapshotTimestamp" class="text-sm font-mono text-cyan">2026-09-10 14:10:23</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dedicated Overview Multi-Source Files Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-cyan text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">Active Loaded Datasets:</span>
+          <div id="overviewSourceFilesPills" class="flex items-center gap-1.5 flex-wrap">
+            <!-- Dynamic pills for all loaded datasets -->
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-mono" id="overviewLoadedTimestamp">Updated: Just now</span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="document.getElementById('csvFileInput').click()" title="Upload or update CSV files">📂 Upload / Add Files</button>
+          <span id="overviewLoadedFileSize" class="text-xs font-mono text-cyan bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="Total Size of Loaded Files"></span>
+        </div>
+      </div>
+
+      <!-- Quick KPI Matrix -->
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+        <!-- Item Comparison Sanity: Total Records -->
+        <div class="kpi-card kpi-cyan" id="ovKpiCardItem" style="cursor: pointer;" title="Click to trace all Item Sanity comparison records">
+          <div class="kpi-label">
+            <span>Item Sanity Total Records</span>
+            <span class="trace-hint">Trace ➔</span>
+          </div>
+          <div id="ovItemTotalRecords" class="kpi-value text-cyan">--</div>
+          <div id="ovItemTotal" class="kpi-subtext">Match Rate: <b id="ovItemMatchRate" class="text-cyan">--%</b> (Matched: --)</div>
+        </div>
+
+        <!-- DSA Parameter Shift: Total Parameter Qty -->
+        <div class="kpi-card kpi-amber" id="ovKpiCardDsa" style="cursor: pointer;" title="Click to trace all DSA parameters & shift distributions">
+          <div class="kpi-label">
+            <span>DSA Total Parameter Qty</span>
+            <span class="trace-hint">Trace ➔</span>
+          </div>
+          <div id="ovDsaTotalParams" class="kpi-value text-amber-400">--</div>
+          <div id="ovDsaTotal" class="kpi-subtext">Shifted: <b id="ovDsaImpact" class="text-amber-400">--</b> (Cat A: --, B: --, C: --)</div>
+        </div>
+
+        <!-- TSR Process Capability: Total Parameters -->
+        <div class="kpi-card kpi-purple" id="ovKpiCardTsr" style="cursor: pointer;" title="Click to trace all TSR parameters & CPK capability metrics">
+          <div class="kpi-label">
+            <span>TSR Total Parameters</span>
+            <span class="trace-hint">Trace ➔</span>
+          </div>
+          <div id="ovTsrTotalParams" class="kpi-value text-purple">--</div>
+          <div id="ovTsrCpkSub" class="kpi-subtext">Worst: <b id="ovTsrWorstCpk" class="text-purple">--</b> • Risk &lt;1.67: --</div>
+        </div>
+
+        <!-- Hard Bin Yield Delta -->
+        <div class="kpi-card kpi-green" id="ovKpiCardYield" style="cursor: pointer;" title="Click to trace Bin & Yield migration transitions">
+          <div class="kpi-label">
+            <span>Yield Delta</span>
+            <span class="trace-hint">Trace ➔</span>
+          </div>
+          <div id="ovYieldDelta" class="kpi-value text-green">--%</div>
+          <div id="ovYieldPass" class="kpi-subtext">NEW vs OLD hard bin pass rate</div>
+        </div>
+
+        <!-- Pass ➔ Fail Risk -->
+        <div class="kpi-card kpi-red" id="ovKpiCardPf" style="cursor: pointer;" title="Click to trace Pass ➔ Fail switch risk items">
+          <div class="kpi-label">
+            <span>Pass ➔ Fail Risk (pf)</span>
+            <span class="trace-hint">Trace ➔</span>
+          </div>
+          <div id="ovPfRisk" class="kpi-value text-red">-- dice</div>
+          <div id="ovPfDesc" class="kpi-subtext">Critical yield fallout count</div>
+        </div>
+
+        <!-- Repeatability Process Quality: Total ECIDs -->
+        <div class="kpi-card kpi-cyan" id="ovKpiCardRepeatability" style="cursor: pointer;" title="Click to open Repeatability & Per-ECID Capability analysis" onclick="window.app.switchTab('repeatability')">
+          <div class="kpi-label">
+            <span>Repeatability Unique ECIDs</span>
+            <span class="trace-hint">Trace ➔</span>
+          </div>
+          <div id="ovRepTotalEcids" class="kpi-value text-cyan">--</div>
+          <div id="ovRepSub" class="kpi-subtext">Avg CV%: <b id="ovRepAvgCv" class="text-cyan">--%</b> &bull; Worst Cp: <b id="ovRepWorstCp" class="text-amber-400">--</b></div>
+        </div>
+      </div>
+
+      <!-- Overview Charts & Tables Grid -->
+      <div class="dashboard-grid">
+        <!-- Item Comparison Donut -->
+        <div class="card col-4">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">🍩</span> Item Comparison Status</h3>
+            <div class="flex items-center gap-2">
+              <span id="ovItemCountBadge" class="text-xs opacity-75">-- Items</span>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartOverviewDonut', 'Item Comparison Status Breakdown')">⛶</button>
+            </div>
+          </div>
+          <div class="chart-container" style="min-height: 270px; height: 270px;">
+            <canvas id="chartOverviewDonut"></canvas>
+          </div>
+        </div>
+
+        <!-- CPK Capability Groups Matrix Table in Executive Overview -->
+        <div class="card col-4">
+          <div class="card-header flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <h3 class="card-title"><span class="icon">🎯</span> CPK Capability Groups</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs opacity-75" id="ovCpkGroupCountBadge">4 Groups</span>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Table (一鍵放大) [Esc 還原]" onclick="window.app.maximizeTable('overviewCpkTable', 'Executive Overview: CPK Capability Groups Matrix')">⛶</button>
+            </div>
+          </div>
+          <div class="data-table-container" style="min-height: 270px; height: 270px; overflow-y: auto;">
+            <table class="data-table w-full text-xs" id="overviewCpkGroupTable">
+              <thead>
+                <tr>
+                  <th>Capability Group</th>
+                  <th class="text-center" style="width: 55px;">Count</th>
+                  <th class="text-right" style="width: 65px;">Share %</th>
+                  <th class="text-center" style="width: 75px;">Risk</th>
+                  <th class="text-right" style="width: 60px;">Trace</th>
+                </tr>
+              </thead>
+              <tbody id="overviewCpkMatrixTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Critical Parameter Shift Drivers Bar Chart -->
+        <div class="card col-4">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">⚡</span> Top Parameter Shifts</h3>
+            <div class="flex items-center gap-2">
+              <span id="ovDsaCountBadge" class="text-xs opacity-75">-- Params</span>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartOverviewTopShift', 'Critical Parameter Shift Drivers')">⛶</button>
+            </div>
+          </div>
+          <div class="chart-container" style="min-height: 270px; height: 270px;">
+            <canvas id="chartOverviewTopShift"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: ITEM SANITY CHECK (sanity_ITEM COMPARSION.txt) -->
+    <!-- ===================================================================== -->
+    <section id="tab-item" class="tab-content">
+      <!-- Dedicated Item Sanity Source File Info Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-cyan text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">Item Sanity Source:</span>
+          <span id="itemLoadedFileName" class="font-mono text-xs text-cyan font-bold bg-navy-900 px-2.5 py-0.5 rounded border border-navy-700">None loaded</span>
+          <span id="itemLoadedFileBadge" class="status-pill pill-cyan text-[11px] font-mono">-- records</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-mono" id="itemLoadedTimestamp">Updated: --</span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="document.getElementById('csvFileInput').click()" title="Load another Item Compare CSV file">📂 Change File</button>
+          <span id="itemLoadedFileSize" class="text-xs font-mono text-cyan bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="Item Compare CSV File Size"></span>
+        </div>
+      </div>
+
+      <!-- 7 Top KPI Row -->
+      <div class="kpi-grid kpi-grid-7">
+        <div class="kpi-card">
+          <div class="kpi-label"><span>Total Records</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiTotalRecords" class="kpi-value">0</div>
+          <div class="kpi-subtext">All compared items</div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-label"><span>Match Count</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiMatchCount" class="kpi-value text-green">0</div>
+          <div class="kpi-subtext">Identical properties</div>
+        </div>
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-label"><span>Name Change</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiNameChange" class="kpi-value text-cyan">0</div>
+          <div class="kpi-subtext">Renamed test items</div>
+        </div>
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-label"><span>Added Count</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiAddedCount" class="kpi-value text-blue">0</div>
+          <div class="kpi-subtext">New in NEW program</div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-label"><span>Removed Count</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiRemovedCount" class="kpi-value text-red">0</div>
+          <div class="kpi-subtext">Missing in NEW program</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label"><span>Limit Change</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiLimitChange" class="kpi-value text-amber-400">0</div>
+          <div class="kpi-subtext">LSL/USL modified</div>
+        </div>
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-label"><span>Change Rate</span><span class="trace-hint">Trace</span></div>
+          <div id="kpiOverallChangeRate" class="kpi-value text-purple">0%</div>
+          <div class="kpi-subtext">Non-match ratio</div>
+        </div>
+      </div>
+
+      <!-- Middle Row: Charts & Impact -->
+      <div class="dashboard-grid">
+        <div class="card col-4">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">🍩</span> Status Distribution</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartItemDonut', 'Item Status Distribution')">⛶</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartItemDonut"></canvas>
+          </div>
+        </div>
+
+        <div class="card col-5">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📊</span> Status Pareto Analysis</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartItemPareto', 'Item Status Pareto')">⛶</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartItemPareto"></canvas>
+          </div>
+        </div>
+
+        <div class="card col-3 flex flex-col justify-between">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🎯</span> Critical Change Impact</h3>
+          </div>
+          <div class="flex-1 flex flex-col justify-center gap-3 my-2">
+            <div class="impact-metric">
+              <span class="label">Limit & Type Alterations:</span>
+              <span id="itemLimitAlterations" class="val text-amber-400">0</span>
+            </div>
+            <div class="impact-metric">
+              <span class="label">Test Add / Remove Delta:</span>
+              <span id="itemAddRemoveDelta" class="val text-red">0</span>
+            </div>
+            <div class="impact-metric">
+              <span class="label">Migration Confidence:</span>
+              <span id="itemConfidenceScore" class="val text-green">100%</span>
+            </div>
+          </div>
+          <div class="callout-box">
+            <div class="text-xs font-bold uppercase text-gray-300">Sanity Conclusion</div>
+            <div id="itemSanityCallout" class="text-xs text-gray-400 mt-1">Review flagged alterations prior to release.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item Comparison Data Table -->
+      <div class="card">
+        <div class="card-header flex justify-between items-center flex-wrap gap-2">
+          <div class="flex items-center gap-3">
+            <h3 class="card-title"><span class="icon">📋</span> Detailed Item Comparison Matrix</h3>
+            <span id="itemTableCountBadge" class="text-xs opacity-75">0 items</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="itemTableSearch" placeholder="🔍 Search test / name..." class="trace-search" oninput="window.app.onItemSearch()">
+            <select id="itemTableStatusFilter" class="bg-navy-900 border border-navy-700 text-xs text-cyan rounded px-2 py-1 outline-none" onchange="window.app.onItemFilterChange()">
+              <option value="ALL">All Statuses</option>
+              <option value="MATCH">MATCH</option>
+              <option value="NAME_CHANGE">NAME_CHANGE</option>
+              <option value="ADDED">ADDED</option>
+              <option value="REMOVED">REMOVED</option>
+              <option value="LIMIT_CHANGE">LIMIT_CHANGE</option>
+            </select>
+          </div>
+        </div>
+        <div class="data-table-container">
+          <table class="data-table" id="itemComparisonTable">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th style="width: 100px;">Status</th>
+                <th>OLD Test Name</th>
+                <th>NEW Test Name</th>
+                <th style="width: 90px;">OLD Limits</th>
+                <th style="width: 90px;">NEW Limits</th>
+                <th style="width: 70px;">OLD Units</th>
+                <th style="width: 70px;">NEW Units</th>
+              </tr>
+            </thead>
+            <tbody id="itemComparisonTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Item Comparison Bottom Analysis / Conclusion Panel -->
+      <div class="dashboard-grid mt-4">
+        <div class="card col-12 flex flex-col">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">📝</span> Item Sanity Assessment & Findings</h3>
+          </div>
+          <div id="itemConclusions" class="flex-1 flex flex-col justify-center"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: DSA PARAMETER SHIFT (DSA.txt) -->
+    <!-- ===================================================================== -->
+    <section id="tab-dsa" class="tab-content">
+      <!-- Dedicated DSA Shift Source File Info Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-amber-400 text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">DSA Shift Source:</span>
+          <span id="dsaLoadedFileName" class="font-mono text-xs text-amber-400 font-bold bg-navy-900 px-2.5 py-0.5 rounded border border-navy-700">None loaded</span>
+          <span id="dsaLoadedFileBadge" class="status-pill pill-amber text-[11px] font-mono">-- params</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-mono" id="dsaLoadedTimestamp">Updated: --</span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-amber-400" onclick="document.getElementById('csvFileInput').click()" title="Load another DSA Compare CSV file">📂 Change File</button>
+          <span id="dsaLoadedFileSize" class="text-xs font-mono text-amber-400 bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="DSA Compare CSV File Size"></span>
+        </div>
+      </div>
+
+      <!-- DSA Test Ignore Quick Toolbar -->
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-3 bg-navy-800/60 p-2.5 px-3 rounded-lg border border-navy-700">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-base">🚫</span>
+          <span class="text-xs font-bold text-gray-200">Test Ignore:</span>
+          <input type="text" id="dsaTestIgnoreInput" placeholder="e.g. not pux, not dummy, !setup" class="bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-2.5 py-1 outline-none w-56 font-mono focus:border-cyan" onchange="window.app.setTestIgnoreInput(this.value)" onkeydown="if(event.key==='Enter') this.blur()">
+          <button class="btn btn-primary text-xs py-1 px-2.5" onclick="window.app.setTestIgnoreInput(document.getElementById('dsaTestIgnoreInput').value)">Apply</button>
+          <button class="btn btn-subtle text-xs py-1 px-2" onclick="window.app.clearTestIgnore()">↺ Clear</button>
+          <button class="btn btn-secondary text-xs py-1 px-2 text-cyan" onclick="window.app.openTestIgnoreModal()">⚙️ Rule Config</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="dsaIgnoreStatusBadge" class="status-pill pill-amber text-xs hidden cursor-pointer" onclick="window.app.traceIgnoredTests('dsa')" title="Click to view ignored tests list in Trace Inspector">
+            ⚠️ <span id="dsaIgnoreCountText">0</span> Ignored
+          </span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="window.app.traceIgnoredTests('dsa')">🔍 Trace Ignored</button>
+        </div>
+      </div>
+
+      <!-- DSA Top KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label"><span>Total Parameters</span><span class="trace-hint">Trace</span></div>
+          <div id="kDsaTotalParams" class="kpi-value">0</div>
+          <div class="kpi-subtext">Assessed parameters</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label"><span>Total Shifted</span><span class="trace-hint">Trace</span></div>
+          <div id="kDsaTotalShifted" class="kpi-value text-amber-400">0</div>
+          <div class="kpi-subtext">Cat A / B / C population</div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-label"><span>Total Full Shift</span><span class="trace-hint">Trace</span></div>
+          <div id="kDsaFullShift" class="kpi-value text-red">0</div>
+          <div class="kpi-subtext">Major mean/sigma shift</div>
+        </div>
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-label"><span>Total Median Shift</span><span class="trace-hint">Trace</span></div>
+          <div id="kDsaMedianShift" class="kpi-value text-cyan">0</div>
+          <div class="kpi-subtext">Center-point drift</div>
+        </div>
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-label"><span>A+B+C Impact</span><span class="trace-hint">Trace</span></div>
+          <div id="kDsaAbcImpact" class="kpi-value text-purple">0%</div>
+          <div class="kpi-subtext">Significant shift ratio</div>
+        </div>
+      </div>
+
+      <!-- DSA Middle Grid -->
+      <div class="dashboard-grid">
+        <!-- Left: Category Pareto -->
+        <div class="card col-4">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📊</span> DSA Category Pareto</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartDsaPareto', 'DSA Category Pareto')">⛶</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartDsaPareto"></canvas>
+          </div>
+        </div>
+
+        <!-- Center: Shift Priority Matrix -->
+        <div class="card col-4">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🎯</span> A/B/C Shift Priority Matrix</h3>
+          </div>
+          <div class="data-table-container mb-3">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Shift Class</th>
+                  <th class="text-center text-red">Cat A</th>
+                  <th class="text-center text-amber-400">Cat B</th>
+                  <th class="text-center text-cyan">Cat C</th>
+                  <th class="text-center text-white">Total</th>
+                </tr>
+              </thead>
+              <tbody id="dsaMatrixTbody"></tbody>
+            </table>
+          </div>
+          <div class="callout-box">
+            <div class="text-xs font-bold text-red">PRIMARY RISK DRIVERS</div>
+            <div class="text-xs text-gray-300 mt-1">
+              Full Shift and Median Shift are the primary risk drivers affecting parametric Cpk and wafer yield.
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Executive Risk Insights -->
+        <div class="card col-4">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🔍</span> Critical Risk Insights</h3>
+          </div>
+          <div id="dsaCriticalFindings" class="flex-1 flex flex-col justify-center"></div>
+          <div class="callout-box mt-3">
+            <div class="text-xs font-bold text-red uppercase">Immediate Attention Required</div>
+            <div class="text-xs text-gray-300 mt-1">Cat A/B/C Full Shift and Median Shift Parameters</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Contributors -->
+      <div class="card mb-4">
+        <div class="card-header flex justify-between items-center">
+          <h3 class="card-title"><span class="icon">🏆</span> Top A/B/C Shift Contributors (Ranked)</h3>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-400">Click bar for full sigma & mean calculation trace</span>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartDsaTopContributors', 'Top A/B/C Shift Contributors')">⛶</button>
+          </div>
+        </div>
+        <div class="chart-container" style="min-height: 240px;">
+          <canvas id="chartDsaTopContributors"></canvas>
+        </div>
+      </div>
+
+      <!-- Bottom Executive Takeaways -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><span class="icon">📌</span> Executive Takeaways & Recommendations</h3>
+        </div>
+        <div id="dsaTakeaways"></div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 4: BIN & YIELD COMPARE (Hard Bin, Soft Bin & First Fail Pareto) -->
+    <!-- ===================================================================== -->
+    <section id="tab-bin" class="tab-content">
+      <!-- Dedicated Bin & Yield Source File Info Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-green text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">Bin Compare Source:</span>
+          <span id="binLoadedFileName" class="font-mono text-xs text-green font-bold bg-navy-900 px-2.5 py-0.5 rounded border border-navy-700">None loaded</span>
+          <span id="binLoadedFileBadge" class="status-pill pill-green text-[11px] font-mono">-- transitions</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-mono" id="binLoadedTimestamp">Updated: --</span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-green" onclick="document.getElementById('csvFileInput').click()" title="Load another Bin Compare CSV file">📂 Change File</button>
+          <span id="binLoadedFileSize" class="text-xs font-mono text-green bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="Bin Compare CSV File Size"></span>
+        </div>
+      </div>
+
+      <!-- Yield KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label"><span>OLD Pass Yield</span><span class="trace-hint">Trace</span></div>
+          <div id="kBinOldYield" class="kpi-value">0%</div>
+          <div class="kpi-subtext">Baseline hard bin yield</div>
+        </div>
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-label"><span>NEW Pass Yield</span><span class="trace-hint">Trace</span></div>
+          <div id="kBinNewYield" class="kpi-value text-cyan">0%</div>
+          <div class="kpi-subtext">New program hard bin yield</div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-label"><span>Yield Delta</span><span class="trace-hint">Trace</span></div>
+          <div id="kBinDeltaYield" class="kpi-value text-green">0%</div>
+          <div class="kpi-subtext">Pass rate delta</div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-label"><span>Pass ➔ Fail (pf)</span><span class="trace-hint">Trace</span></div>
+          <div id="kBinPfCount" class="kpi-value text-red">0 dice</div>
+          <div class="kpi-subtext">Critical yield fallout</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label"><span>Rank #1 Fallout Driver</span><span class="trace-hint">Trace</span></div>
+          <div id="kBinTopFailDriver" class="kpi-value text-amber" style="font-size: 1.15rem;">None</div>
+          <div class="kpi-subtext" id="kBinTopFailDriverSub">Top yield limiter</div>
+        </div>
+      </div>
+
+      <!-- Pareto Comparison Chart & Transitions Row -->
+      <div class="dashboard-grid">
+        <!-- Pareto Comparison Chart (Hard / Soft / First Fail) -->
+        <div class="card col-8">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="card-title"><span class="icon">📊</span> <span id="binParetoChartHeading">Hard Bin Distribution Pareto</span></h3>
+              <span id="binParetoModeBadge" class="status-pill pill-cyan text-xs">OLD vs NEW</span>
+            </div>
+            
+            <!-- Pareto Controls: View Switcher & Filter -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-1 bg-navy-800/60 p-0.5 rounded-lg border border-navy-700">
+                <button id="btnBinParetoHard" class="btn btn-primary text-xs py-1 px-2.5 flex items-center gap-1" onclick="window.app.setBinParetoMode('hard')">
+                  <span>🗂️</span> <span>Hard Bin</span>
+                </button>
+                <button id="btnBinParetoSoft" class="btn btn-secondary text-xs py-1 px-2.5 flex items-center gap-1" onclick="window.app.setBinParetoMode('soft')">
+                  <span>🏷️</span> <span>Soft Bin</span>
+                </button>
+                <button id="btnBinParetoFF" class="btn btn-secondary text-xs py-1 px-2.5 flex items-center gap-1" onclick="window.app.setBinParetoMode('firstfail')">
+                  <span>⚠️</span> <span>First Fail</span>
+                </button>
+              </div>
+
+              <!-- Filter: All / Failures Only -->
+              <button id="btnBinParetoFilter" class="btn btn-secondary text-xs py-1 px-2.5 flex items-center gap-1" onclick="window.app.toggleBinParetoFilter()" title="Toggle showing all bins (including pass) or failure bins only">
+                <span id="binParetoFilterIcon">🔍</span> <span id="binParetoFilterText">Failures Only</span>
+              </button>
+
+              <!-- X & Y Axis Zoom & Scroll Slide Controls -->
+              <div class="flex items-center gap-1.5 bg-navy-800/60 p-1 px-2 rounded-lg border border-navy-700 text-xs">
+                <!-- X-Axis Bar Spacing -->
+                <span class="opacity-75 text-[11px]" title="X-Axis bar spacing">↔ X:</span>
+                <input type="range" id="binParetoZoomSlider" min="28" max="120" value="55" class="w-14 h-1 accent-cyan cursor-pointer" oninput="window.app.onBinParetoZoom(this.value)" title="Adjust X-axis bar width & spacing">
+                <span id="binParetoZoomVal" class="font-mono text-cyan text-[11px]">55px</span>
+                
+                <!-- X-Scroll Buttons -->
+                <button class="btn btn-subtle text-xs py-0.5 px-1.5 leading-none" onclick="window.app.scrollBinPareto(-250)" title="Scroll Left (◀)">◀</button>
+                <button class="btn btn-subtle text-xs py-0.5 px-1.5 leading-none" onclick="window.app.scrollBinPareto(250)" title="Scroll Right (▶)">▶</button>
+
+                <div class="h-3 w-[1px] bg-navy-700 mx-1"></div>
+
+                <!-- Y-Axis Vertical Height / Zoom -->
+                <span class="opacity-75 text-[11px]" title="Y-Axis vertical height & zoom">↕ Y:</span>
+                <input type="range" id="binParetoHeightSlider" min="260" max="600" value="320" class="w-14 h-1 accent-cyan cursor-pointer" oninput="window.app.onBinParetoHeightZoom(this.value)" title="Adjust Y-axis height and vertical resolution">
+                <span id="binParetoHeightVal" class="font-mono text-cyan text-[11px]">320px</span>
+              </div>
+
+              <!-- Maximize Fullscreen Button -->
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartBinParetoComparison', 'Hard / Soft / First Fail Pareto Distribution')">⛶</button>
+
+              <span class="text-xs opacity-75 hidden xl:inline">Click bar to trace</span>
+            </div>
+          </div>
+          <div class="chart-scroll-wrapper" id="binParetoScrollWrapper">
+            <div class="chart-scroll-inner" id="binParetoInnerWrapper">
+              <canvas id="chartBinParetoComparison"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Binstate Transitions & Insights -->
+        <div class="card col-4 flex flex-col">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">🔄</span> Binstate Switch Transitions</h3>
+            <div class="flex items-center gap-2">
+              <span class="text-xs opacity-75">Pass / Fail States</span>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartBinTransitions', 'Binstate Switch Transitions')">⛶</button>
+            </div>
+          </div>
+          <div class="chart-container" style="min-height: 180px; height: 180px;">
+            <canvas id="chartBinTransitions"></canvas>
+          </div>
+          
+          <!-- Key Insights for current Pareto mode -->
+          <div class="mt-2 border-t border-navy-700 pt-2 flex-1 flex flex-col justify-center" id="binParetoInsights">
+            <!-- Dynamic insights inserted by app.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Comprehensive Pareto Comparison Data Table -->
+      <div class="card">
+        <div class="card-header flex flex-wrap justify-between items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="card-title"><span class="icon">📋</span> <span id="binParetoTableTitle">Hard Bin Comparative Distribution & Pareto Matrix</span></h3>
+            <span id="binParetoTableCountBadge" class="text-xs font-mono font-bold text-cyan bg-cyan/10 px-2 py-0.5 rounded border border-cyan/20">0 items</span>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <input type="text" id="binParetoSearch" placeholder="🔍 Filter bins / tests..." class="trace-search text-xs py-1 px-2.5" style="width: 175px;" oninput="window.app.onBinParetoSearch()">
+            
+            <!-- Adjustable Column Width -->
+            <div class="flex items-center gap-1.5 bg-navy-800/60 p-1 px-2 rounded-lg border border-navy-700 text-xs">
+              <span class="opacity-75 text-[11px]" title="Adjust Bin Name column width">↔ Name:</span>
+              <input type="range" id="binNameWidthSlider" min="160" max="800" value="280" class="w-14 h-1 accent-cyan cursor-pointer" oninput="window.app.setBinNameWidth(this.value)" title="Adjust Bin Name column width (拖曳調整名稱欄寬)">
+              <span id="binNameWidthVal" class="font-mono text-cyan text-[11px]">280px</span>
+            </div>
+
+            <!-- Auto-Fit Toggle Button -->
+            <button id="btnBinAutoFit" class="btn btn-secondary text-xs py-1 px-2 flex items-center gap-1" onclick="window.app.toggleBinAutoFit()" title="Toggle Auto-Fit All (完全展開無縮略 / 自動最適寬度)">
+              <span>↔</span> <span id="btnBinAutoFitText">Auto-Fit</span>
+            </button>
+
+            <span class="text-xs opacity-75 hidden xl:inline">Drag header borders to resize</span>
+          </div>
+        </div>
+        <div class="data-table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Rank</th>
+                <th style="width: 100px;" id="thBinParetoId">Bin #</th>
+                <th id="thBinParetoName">Bin Name / Description</th>
+                <th style="width: 100px;" id="thBinParetoClass">State</th>
+                <th class="text-center">OLD Count</th>
+                <th class="text-right">OLD % (Cum)</th>
+                <th class="text-center">NEW Count</th>
+                <th class="text-right">NEW % (Cum)</th>
+                <th class="text-center">Δ Count</th>
+                <th class="text-right">Δ %</th>
+                <th style="width: 120px;" class="text-center">Fallout Trend</th>
+              </tr>
+            </thead>
+            <tbody id="binParetoTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 5: TSR TEST SUMMARY REPORT (Parameter Pareto, CPK & Dist) -->
+    <!-- ===================================================================== -->
+    <section id="tab-tsr" class="tab-content">
+      <!-- Dedicated TSR Source File Info Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-purple text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">TSR Summary Source:</span>
+          <span id="tsrLoadedFileName" class="font-mono text-xs text-purple font-bold bg-navy-900 px-2.5 py-0.5 rounded border border-navy-700">None loaded</span>
+          <span id="tsrLoadedFileBadge" class="status-pill pill-purple text-[11px] font-mono">-- params</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-mono" id="tsrLoadedTimestamp">Updated: --</span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-purple" onclick="document.getElementById('csvFileInput').click()" title="Load another TSR Summary CSV file">📂 Change File</button>
+          <span id="tsrLoadedFileSize" class="text-xs font-mono text-purple bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="TSR Summary CSV File Size"></span>
+        </div>
+      </div>
+
+      <!-- TSR Test Ignore Quick Toolbar -->
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-3 bg-navy-800/60 p-2.5 px-3 rounded-lg border border-navy-700">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-base">🚫</span>
+          <span class="text-xs font-bold text-gray-200">Test Ignore:</span>
+          <input type="text" id="tsrTestIgnoreInput" placeholder="e.g. not pux, not dummy, !setup" class="bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-2.5 py-1 outline-none w-56 font-mono focus:border-cyan" onchange="window.app.setTestIgnoreInput(this.value)" onkeydown="if(event.key==='Enter') this.blur()">
+          <button class="btn btn-primary text-xs py-1 px-2.5" onclick="window.app.setTestIgnoreInput(document.getElementById('tsrTestIgnoreInput').value)">Apply</button>
+          <button class="btn btn-subtle text-xs py-1 px-2" onclick="window.app.clearTestIgnore()">↺ Clear</button>
+          <button class="btn btn-secondary text-xs py-1 px-2 text-cyan" onclick="window.app.openTestIgnoreModal()">⚙️ Rule Config</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="tsrIgnoreStatusBadge" class="status-pill pill-amber text-xs hidden cursor-pointer" onclick="window.app.traceIgnoredTests('tsr')" title="Click to view ignored tests list in Trace Inspector">
+            ⚠️ <span id="tsrIgnoreCountText">0</span> Ignored
+          </span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="window.app.traceIgnoredTests('tsr')">🔍 Trace Ignored</button>
+        </div>
+      </div>
+
+      <!-- TSR Top KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label"><span>Total Tested Dice</span><span class="trace-hint">Trace</span></div>
+          <div id="kTsrTotalTested" class="kpi-value">0</div>
+          <div class="kpi-subtext">Summary wafer population</div>
+        </div>
+        <div class="kpi-card kpi-red">
+          <div class="kpi-label"><span>Total Failure Loss</span><span class="trace-hint">Trace</span></div>
+          <div id="kTsrTotalFail" class="kpi-value text-red">0</div>
+          <div class="kpi-subtext">Cumulative parameter defect count</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label"><span>Rank #1 Loss Driver</span><span class="trace-hint">Trace</span></div>
+          <div id="kTsrTopLoss" class="kpi-value text-amber" style="font-size: 1.15rem;">None</div>
+          <div class="kpi-subtext" id="kTsrTopLossSub">Largest failure contributor</div>
+        </div>
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-label"><span>Worst CPK Bottleneck</span><span class="trace-hint">Trace</span></div>
+          <div id="kTsrWorstCpk" class="kpi-value text-purple" style="font-size: 1.15rem;">0.00</div>
+          <div class="kpi-subtext" id="kTsrWorstCpkSub">Weakest capability link</div>
+        </div>
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-label"><span>CPK &lt; 1.67 Risk Items</span><span class="trace-hint">Trace</span></div>
+          <div id="kTsrCpkRisk" class="kpi-value text-cyan">0</div>
+          <div class="kpi-subtext">Critical & Marginal test count</div>
+        </div>
+      </div>
+
+      <!-- TSR Charts Row -->
+      <div class="dashboard-grid">
+        <!-- Parameter Failure Pareto -->
+        <div class="card col-5">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <h3 class="card-title"><span class="icon">📊</span> Parameter Failure Pareto</h3>
+              <span id="tsrParetoFilterBadge" class="status-pill pill-cyan hidden" style="cursor: pointer;" onclick="window.app.resetTsrFilter()" title="Click to clear filter and show all groups">
+                <span id="tsrParetoFilterText">All</span> ✕
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnTsrTop10" class="btn btn-secondary text-xs py-1 px-2.5 flex items-center gap-1" onclick="window.app.toggleTsrTop10()" title="Toggle Top 10 Parameters / All Parameters">
+                <span>🔝</span> <span id="btnTsrTop10Text">Top 10</span>
+              </button>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartTsrPareto', 'Parameter Failure Pareto')">⛶</button>
+              <span class="text-xs opacity-75 hidden md:inline">Click bar to trace</span>
+            </div>
+          </div>
+          <div class="chart-scroll-wrapper" id="tsrParetoScrollWrapper" style="min-height: 270px; height: 270px;">
+            <div class="chart-scroll-inner" id="tsrParetoInnerWrapper">
+              <canvas id="chartTsrPareto"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- CPK Group Capability Matrix Table -->
+        <div class="card col-4">
+          <div class="card-header flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <h3 class="card-title"><span class="icon">🎯</span> CPK Capability Groups</h3>
+              <span id="tsrCpkFilterBadge" class="status-pill pill-cyan hidden cursor-pointer" onclick="window.app.resetTsrFilter()" title="Click to clear filter">
+                <span id="tsrCpkFilterBadgeText">All</span> ✕
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs opacity-75" id="tsrCpkGroupCountBadge">4 Groups</span>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Table (一鍵放大) [Esc 還原]" onclick="window.app.maximizeTable('tsrCpkTable', 'CPK Capability Groups Matrix')">⛶</button>
+            </div>
+          </div>
+          <div class="data-table-container" style="min-height: 270px; height: 270px; overflow-y: auto;">
+            <table class="data-table w-full text-xs" id="tsrCpkGroupTable">
+              <thead>
+                <tr>
+                  <th>Capability Group</th>
+                  <th class="text-center" style="width: 55px;">Count</th>
+                  <th class="text-right" style="width: 65px;">Share %</th>
+                  <th class="text-center" style="width: 80px;">Risk Level</th>
+                  <th class="text-right" style="width: 65px;">Filter</th>
+                </tr>
+              </thead>
+              <tbody id="tsrCpkMatrixTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Distribution Shape Bar -->
+        <div class="card col-3">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📈</span> Distribution Shapes</h3>
+            <div class="flex items-center gap-2">
+              <span class="text-xs opacity-75" id="tsrDistShapeCountBadge">All Shapes</span>
+              <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart (一鍵放大) [Esc 還原]" onclick="window.app.maximizeChart('chartTsrDistBar', 'Distribution Shapes')">⛶</button>
+            </div>
+          </div>
+          <div class="chart-container scrollable-matrix-container" id="distBarContainer" style="min-height: 270px; height: 270px; overflow-y: auto;">
+            <canvas id="chartTsrDistBar"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- TSR Summary Data Table with Filtering & Column Sorting -->
+      <div class="card">
+        <div class="card-header flex flex-wrap justify-between items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="card-title"><span class="icon">📋</span> Test Summary Parameter Statistics & Capability Matrix</h3>
+            <span id="tsrTableRecordCount" class="text-xs font-mono font-bold text-cyan bg-cyan/10 px-2 py-0.5 rounded border border-cyan/20">0 items</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Search Filter -->
+            <input type="text" id="tsrTableSearch" placeholder="🔍 Search test, limits..." class="trace-search text-xs py-1 px-2.5" style="width: 175px;" oninput="window.app.onTsrTableFilterChange()">
+            
+            <!-- CPK Group Filter -->
+            <select id="tsrTableCpkFilter" class="trace-search text-xs py-1 px-2" onchange="window.app.onTsrTableFilterChange()">
+              <option value="ALL">All CPK Groups</option>
+            </select>
+
+            <!-- Distribution Filter -->
+            <select id="tsrTableDistFilter" class="trace-search text-xs py-1 px-2" onchange="window.app.onTsrTableFilterChange()">
+              <option value="ALL">All Distributions</option>
+            </select>
+
+            <!-- Quick Preset Filter Buttons -->
+            <div class="flex items-center gap-1">
+              <button type="button" id="btnTsrPresetAll" class="btn btn-primary text-xs py-1 px-2.5" onclick="window.app.setTsrTablePreset('ALL')">All</button>
+              <button type="button" id="btnTsrPresetFail" class="btn btn-secondary text-xs py-1 px-2.5" onclick="window.app.setTsrTablePreset('FAIL_ONLY')">Fails &gt; 0</button>
+              <button type="button" id="btnTsrPresetRisk" class="btn btn-secondary text-xs py-1 px-2.5" onclick="window.app.setTsrTablePreset('CPK_RISK')">CPK &lt; 1.67</button>
+            </div>
+
+            <!-- Adjustable Column Widths & Resizing -->
+            <div class="flex items-center gap-1.5 bg-navy-800/60 p-1 px-2 rounded-lg border border-navy-700 text-xs">
+              <!-- Name Width Slider -->
+              <span class="opacity-75 text-[11px]" title="Adjust Test Name column width">↔ Name:</span>
+              <input type="range" id="tsrNameWidthSlider" min="160" max="800" value="320" class="w-14 h-1 accent-cyan cursor-pointer" oninput="window.app.setTsrNameWidth(this.value)" title="Adjust Test Name column width (拖曳調整測試名稱欄寬)">
+              <span id="tsrNameWidthVal" class="font-mono text-cyan text-[11px]">320px</span>
+
+              <div class="h-3 w-[1px] bg-navy-700 mx-0.5"></div>
+
+              <!-- Limits Width Slider -->
+              <span class="opacity-75 text-[11px]" title="Adjust Limits column width">↔ Limit:</span>
+              <input type="range" id="tsrLimitWidthSlider" min="90" max="400" value="150" class="w-14 h-1 accent-cyan cursor-pointer" oninput="window.app.setTsrLimitWidth(this.value)" title="Adjust Limits column width (拖曳調整規格限制欄寬)">
+              <span id="tsrLimitWidthVal" class="font-mono text-cyan text-[11px]">150px</span>
+            </div>
+
+            <!-- Auto-Fit Toggle Button -->
+            <button type="button" id="btnTsrAutoFit" class="btn btn-secondary text-xs py-1 px-2 flex items-center gap-1" onclick="window.app.toggleTsrAutoFit()" title="Toggle Auto-Fit All (完全展開無縮略 / 自動最適寬度)">
+              <span>↔</span> <span id="btnTsrAutoFitText">Auto-Fit</span>
+            </button>
+
+            <!-- Wrap / Compact Test Name Toggle -->
+            <button type="button" id="btnTsrWrapToggle" class="btn btn-secondary text-xs py-1 px-2 flex items-center gap-1" onclick="window.app.toggleTsrWrapMode()" title="Toggle Test Name Wrap / Compact Ellipsis">
+              <span>🔤</span> <span id="btnTsrWrapText">Wrap Names</span>
+            </button>
+
+            <!-- Reset Filters -->
+            <button type="button" class="btn btn-subtle text-xs py-1 px-2" onclick="window.app.resetTsrTableFilters()" title="Reset all search and filters">↺ Reset</button>
+          </div>
+        </div>
+        <div class="data-table-container">
+          <table class="data-table" id="tsrMatrixTable">
+            <thead id="tsrMatrixThead">
+              <!-- Dynamically populated with sortable headers & sort indicators -->
+            </thead>
+            <tbody id="tsrSummaryTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 6: REPEATABILITY DATA ANALYSIS & PER-ECID STATISTICS -->
+    <!-- ===================================================================== -->
+    <section id="tab-repeatability" class="tab-content">
+      <!-- Repeatability Test Ignore Quick Toolbar -->
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-3 bg-navy-800/60 p-2.5 px-3 rounded-lg border border-navy-700">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-base">🚫</span>
+          <span class="text-xs font-bold text-gray-200">Test Ignore:</span>
+          <input type="text" id="repTestIgnoreInput" placeholder="e.g. not pux, not dummy, !setup" class="bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-2.5 py-1 outline-none w-56 font-mono focus:border-cyan" onchange="window.app.setTestIgnoreInput(this.value)" onkeydown="if(event.key==='Enter') this.blur()">
+          <button class="btn btn-primary text-xs py-1 px-2.5" onclick="window.app.setTestIgnoreInput(document.getElementById('repTestIgnoreInput').value)">Apply</button>
+          <button class="btn btn-subtle text-xs py-1 px-2" onclick="window.app.clearTestIgnore()">↺ Clear</button>
+          <button class="btn btn-secondary text-xs py-1 px-2 text-cyan" onclick="window.app.openTestIgnoreModal()">⚙️ Rule Config</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="repIgnoreStatusBadge" class="status-pill pill-amber text-xs hidden cursor-pointer" onclick="window.app.traceIgnoredTests('repeatability')" title="Click to view ignored tests list">
+            ⚠️ <span id="repIgnoreCountText">0</span> Ignored
+          </span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="window.app.traceIgnoredTests('repeatability')">🔍 Trace Ignored</button>
+        </div>
+      </div>
+
+      <!-- Active Loaded File Info Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-cyan text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">Repeatability Source:</span>
+          <span id="repLoadedFileName" class="font-mono text-xs text-cyan font-bold bg-navy-900 px-2.5 py-0.5 rounded border border-navy-700">01_LOT123_CP1_MAIN_PROG_REV_A_repeatability_new_20260826_163203.csv</span>
+          <span id="repLoadedFileBadge" class="status-pill pill-cyan text-[11px] font-mono">1,182 records • 197 ECIDs</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-mono" id="repLoadedTimestamp">Updated: Just now</span>
+          <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="document.getElementById('csvFileInput').click()" title="Load another repeatability file">📂 Change File</button>
+          <span id="repLoadedFileSize" class="text-xs font-mono text-cyan bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="Repeatability CSV File Size"></span>
+        </div>
+      </div>
+
+      <!-- Repeatability Top KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card" id="kpiRepEcidsCard" style="cursor: pointer;" onclick="window.app.setRepeatabilityViewMode('per_ecid')">
+          <div class="kpi-label"><span>Total Unique ECIDs</span><span class="trace-hint">Trace</span></div>
+          <div id="kRepTotalEcids" class="kpi-value text-cyan">0</div>
+          <div class="kpi-subtext">Evaluated dice / sites</div>
+        </div>
+        <div class="kpi-card kpi-purple" id="kpiRepTestsCard" style="cursor: pointer;" onclick="window.app.setRepeatabilityViewMode('per_test')">
+          <div class="kpi-label"><span>Total Test Parameters</span><span class="trace-hint">Trace</span></div>
+          <div id="kRepTotalTests" class="kpi-value text-purple">0</div>
+          <div class="kpi-subtext" id="kRepTotalMeasurementsSub">0 measurements</div>
+        </div>
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-label"><span>Average CV (%)</span><span class="trace-hint">Trace</span></div>
+          <div id="kRepAvgCv" class="kpi-value text-cyan">0.00%</div>
+          <div class="kpi-subtext" id="kRepMaxCvSub">Max: 0.00% &bull; CV &gt; 10%: 0</div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-label"><span>Average Process Cp</span><span class="trace-hint">Trace</span></div>
+          <div id="kRepAvgCp" class="kpi-value text-green">0.00</div>
+          <div class="kpi-subtext" id="kRepWorstCpSub">Worst Cp: 0.00 &bull; Cp &lt; 4.0: 0</div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label"><span>Dominant Trend Pattern</span><span class="trace-hint">Trace</span></div>
+          <div id="kRepDominantTrend" class="kpi-value text-amber" style="font-size: 1.15rem;">None</div>
+          <div class="kpi-subtext" id="kRepTrendRiskSub">Shift / Drift items: 0</div>
+        </div>
+      </div>
+
+      <!-- Repeatability Charts Row (Dist, Dist_Repeat, Trend, Test CV%/Cp) -->
+      <div class="dashboard-grid">
+        <!-- Dist Categorical Morphology Histogram -->
+        <div class="card col-3">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📊</span> Dist Histogram</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart" onclick="window.app.maximizeChart('chartRepDist', 'Repeatability Dist Morphology Histogram')">⛶</button>
+          </div>
+          <div class="chart-container" style="min-height: 250px; height: 250px;">
+            <canvas id="chartRepDist"></canvas>
+          </div>
+        </div>
+
+        <!-- Dist_Repeat Stability Histogram -->
+        <div class="card col-3">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📈</span> Dist_Repeat Histogram</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart" onclick="window.app.maximizeChart('chartRepDistRepeat', 'Repeatability Dist_Repeat Pattern Histogram')">⛶</button>
+          </div>
+          <div class="chart-container" style="min-height: 250px; height: 250px;">
+            <canvas id="chartRepDistRepeat"></canvas>
+          </div>
+        </div>
+
+        <!-- Trend Shift & Noise Breakdown -->
+        <div class="card col-3">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📈</span> Trend & Drift Shift</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart" onclick="window.app.maximizeChart('chartRepTrend', 'Repeatability Trend Shift & Drift Distribution')">⛶</button>
+          </div>
+          <div class="chart-container" style="min-height: 250px; height: 250px;">
+            <canvas id="chartRepTrend"></canvas>
+          </div>
+        </div>
+
+        <!-- Parameter CV% & Cp Comparison -->
+        <div class="card col-3">
+          <div class="card-header flex justify-between items-center">
+            <h3 class="card-title"><span class="icon">📉</span> CV% &amp; Cp by Test</h3>
+            <button class="chart-expand-btn btn btn-subtle text-xs py-0.5 px-1.5" title="Maximize Chart" onclick="window.app.maximizeChart('chartRepTestCv', 'Test Parameter CV% & Cp Comparison')">⛶</button>
+          </div>
+          <div class="chart-container" style="min-height: 250px; height: 250px;">
+            <canvas id="chartRepTestCv"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Repeatability Interactive Table with View Switcher, Search, Filter & Sort -->
+      <div class="card">
+        <div class="card-header flex flex-wrap justify-between items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <!-- View Mode Switcher -->
+            <div class="flex items-center gap-1 bg-navy-800/60 p-0.5 rounded-lg border border-navy-700">
+              <button type="button" id="btnRepViewEcid" class="btn btn-primary text-xs py-1 px-3 flex items-center gap-1" onclick="window.app.setRepeatabilityViewMode('per_ecid')">
+                <span>📍</span> <span>Per-ECID Statistics</span>
+              </button>
+              <button type="button" id="btnRepViewTest" class="btn btn-secondary text-xs py-1 px-3 flex items-center gap-1" onclick="window.app.setRepeatabilityViewMode('per_test')">
+                <span>🎯</span> <span>Per-Test Statistics</span>
+              </button>
+              <button type="button" id="btnRepViewDetail" class="btn btn-secondary text-xs py-1 px-3 flex items-center gap-1" onclick="window.app.setRepeatabilityViewMode('detail')">
+                <span>📋</span> <span>Full Detail Matrix</span>
+              </button>
+            </div>
+            <span id="repTableRecordCount" class="text-xs font-mono font-bold text-cyan bg-cyan/10 px-2.5 py-0.5 rounded border border-cyan/20">0 items</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Search Filter -->
+            <input type="text" id="repTableSearch" placeholder="🔍 Live search ECID, test, trend..." class="trace-search text-xs py-1 px-2.5" style="width: 190px;" oninput="window.app.onRepeatabilityFilterChange()" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.app.onRepeatabilityFilterChange();}">
+
+            <!-- ECID Multi-Select Filter -->
+            <div class="custom-multiselect" id="repFilterEcidContainer">
+              <button type="button" class="multiselect-btn trace-search text-xs py-1 px-2.5 flex items-center justify-between gap-1.5" onclick="window.app.toggleMultiSelectDropdown('ecid', event)">
+                <span class="multiselect-label truncate text-xs" id="lblRepFilterEcid">All ECIDs</span>
+                <span class="text-[9px] text-cyan opacity-80">▼</span>
+              </button>
+              <div class="multiselect-panel hidden" id="panelRepFilterEcid">
+                <div class="p-1.5 border-b border-navy-700 flex items-center justify-between gap-1 text-[11px] bg-navy-900/90">
+                  <button type="button" class="text-cyan hover:underline font-bold text-[11px]" onclick="window.app.selectAllMultiSelect('ecid')">Select All</button>
+                  <button type="button" class="text-gray-400 hover:text-white text-[11px]" onclick="window.app.clearAllMultiSelect('ecid')">Clear</button>
+                </div>
+                <div class="p-1 border-b border-navy-700">
+                  <input type="text" class="w-full bg-navy-950 border border-navy-700 text-xs px-1.5 py-0.5 rounded text-white outline-none focus:border-cyan" placeholder="Filter ECID..." oninput="window.app.filterMultiSelectOptions('ecid', this.value)">
+                </div>
+                <div class="multiselect-options max-h-48 overflow-y-auto p-1 space-y-0.5" id="optsRepFilterEcid"></div>
+              </div>
+            </div>
+
+            <!-- Test Multi-Select Filter -->
+            <div class="custom-multiselect" id="repFilterTestContainer">
+              <button type="button" class="multiselect-btn trace-search text-xs py-1 px-2.5 flex items-center justify-between gap-1.5" onclick="window.app.toggleMultiSelectDropdown('test', event)">
+                <span class="multiselect-label truncate text-xs" id="lblRepFilterTest">All Tests</span>
+                <span class="text-[9px] text-cyan opacity-80">▼</span>
+              </button>
+              <div class="multiselect-panel hidden" id="panelRepFilterTest">
+                <div class="p-1.5 border-b border-navy-700 flex items-center justify-between gap-1 text-[11px] bg-navy-900/90">
+                  <button type="button" class="text-cyan hover:underline font-bold text-[11px]" onclick="window.app.selectAllMultiSelect('test')">Select All</button>
+                  <button type="button" class="text-gray-400 hover:text-white text-[11px]" onclick="window.app.clearAllMultiSelect('test')">Clear</button>
+                </div>
+                <div class="p-1 border-b border-navy-700">
+                  <input type="text" class="w-full bg-navy-950 border border-navy-700 text-xs px-1.5 py-0.5 rounded text-white outline-none focus:border-cyan" placeholder="Filter Test..." oninput="window.app.filterMultiSelectOptions('test', this.value)">
+                </div>
+                <div class="multiselect-options max-h-48 overflow-y-auto p-1 space-y-0.5" id="optsRepFilterTest"></div>
+              </div>
+            </div>
+
+            <!-- Trend Multi-Select Filter -->
+            <div class="custom-multiselect" id="repFilterTrendContainer">
+              <button type="button" class="multiselect-btn trace-search text-xs py-1 px-2.5 flex items-center justify-between gap-1.5" onclick="window.app.toggleMultiSelectDropdown('trend', event)">
+                <span class="multiselect-label truncate text-xs" id="lblRepFilterTrend">All Trends</span>
+                <span class="text-[9px] text-cyan opacity-80">▼</span>
+              </button>
+              <div class="multiselect-panel hidden" id="panelRepFilterTrend">
+                <div class="p-1.5 border-b border-navy-700 flex items-center justify-between gap-1 text-[11px] bg-navy-900/90">
+                  <button type="button" class="text-cyan hover:underline font-bold text-[11px]" onclick="window.app.selectAllMultiSelect('trend')">Select All</button>
+                  <button type="button" class="text-gray-400 hover:text-white text-[11px]" onclick="window.app.clearAllMultiSelect('trend')">Clear</button>
+                </div>
+                <div class="multiselect-options max-h-48 overflow-y-auto p-1 space-y-0.5" id="optsRepFilterTrend"></div>
+              </div>
+            </div>
+
+            <!-- Dist Multi-Select Filter -->
+            <div class="custom-multiselect" id="repFilterDistContainer">
+              <button type="button" class="multiselect-btn trace-search text-xs py-1 px-2.5 flex items-center justify-between gap-1.5" onclick="window.app.toggleMultiSelectDropdown('dist', event)">
+                <span class="multiselect-label truncate text-xs" id="lblRepFilterDist">All Dist</span>
+                <span class="text-[9px] text-cyan opacity-80">▼</span>
+              </button>
+              <div class="multiselect-panel hidden" id="panelRepFilterDist">
+                <div class="p-1.5 border-b border-navy-700 flex items-center justify-between gap-1 text-[11px] bg-navy-900/90">
+                  <button type="button" class="text-cyan hover:underline font-bold text-[11px]" onclick="window.app.selectAllMultiSelect('dist')">Select All</button>
+                  <button type="button" class="text-gray-400 hover:text-white text-[11px]" onclick="window.app.clearAllMultiSelect('dist')">Clear</button>
+                </div>
+                <div class="multiselect-options max-h-48 overflow-y-auto p-1 space-y-0.5" id="optsRepFilterDist"></div>
+              </div>
+            </div>
+
+            <!-- Dist_Repeat Multi-Select Filter -->
+            <div class="custom-multiselect" id="repFilterDistRepeatContainer">
+              <button type="button" class="multiselect-btn trace-search text-xs py-1 px-2.5 flex items-center justify-between gap-1.5" onclick="window.app.toggleMultiSelectDropdown('distRepeat', event)">
+                <span class="multiselect-label truncate text-xs" id="lblRepFilterDistRepeat">All Dist_Repeat</span>
+                <span class="text-[9px] text-cyan opacity-80">▼</span>
+              </button>
+              <div class="multiselect-panel hidden" id="panelRepFilterDistRepeat">
+                <div class="p-1.5 border-b border-navy-700 flex items-center justify-between gap-1 text-[11px] bg-navy-900/90">
+                  <button type="button" class="text-cyan hover:underline font-bold text-[11px]" onclick="window.app.selectAllMultiSelect('distRepeat')">Select All</button>
+                  <button type="button" class="text-gray-400 hover:text-white text-[11px]" onclick="window.app.clearAllMultiSelect('distRepeat')">Clear</button>
+                </div>
+                <div class="multiselect-options max-h-48 overflow-y-auto p-1 space-y-0.5" id="optsRepFilterDistRepeat"></div>
+              </div>
+            </div>
+
+            <!-- Quick Preset Filter Buttons -->
+            <div class="flex items-center gap-1">
+              <button type="button" id="btnRepPresetAll" class="btn btn-primary text-xs py-1 px-2" onclick="window.app.setRepeatabilityPreset('ALL')">All</button>
+              <button type="button" id="btnRepPresetHighCv" class="btn btn-secondary text-xs py-1 px-2 font-bold" onclick="window.app.setRepeatabilityPreset('HIGH_CV')" title="Filter |CV%| >= 5.0%">|CV%| ≥ 5%</button>
+              <button type="button" id="btnRepPresetLowCp" class="btn btn-secondary text-xs py-1 px-2" onclick="window.app.setRepeatabilityPreset('LOW_CP')" title="Filter Low Cp (< 4.0)">Cp &lt; 4.0</button>
+              <button type="button" id="btnRepPresetDrift" class="btn btn-secondary text-xs py-1 px-2" onclick="window.app.setRepeatabilityPreset('DRIFT_ONLY')" title="Filter Step Shift or Thermal Drift">Drift/Shift</button>
+            </div>
+
+            <!-- Auto-Fit Toggle Button -->
+            <button type="button" id="btnRepAutoFit" class="btn btn-secondary text-xs py-1 px-2 flex items-center gap-1" onclick="window.app.toggleRepeatabilityAutoFit()" title="Toggle Auto-Fit All">
+              <span>↔</span> <span id="btnRepAutoFitText">Auto-Fit</span>
+            </button>
+
+            <!-- Reset Filters -->
+            <button type="button" class="btn btn-subtle text-xs py-1 px-2" onclick="window.app.resetRepeatabilityFilters()" title="Reset all search and filters">↺ Reset</button>
+          </div>
+        </div>
+
+        <div class="data-table-container">
+          <table class="data-table" id="repeatabilityMatrixTable">
+            <thead id="repMatrixThead">
+              <!-- Dynamically populated with sortable headers & sort indicators -->
+            </thead>
+            <tbody id="repMatrixTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 7: RAW DATA & TRACE EXPLORER -->
+    <!-- ===================================================================== -->
+    <section id="tab-explorer" class="tab-content">
+      <!-- Dedicated Explorer Source File Info Bar -->
+      <div class="card mb-3 p-2.5 px-4 bg-navy-800/80 border border-navy-700 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-cyan text-sm">📁</span>
+          <span class="text-xs font-bold text-gray-300">Active Explorer Dataset:</span>
+          <span id="explorerLoadedFileName" class="font-mono text-xs text-cyan font-bold bg-navy-900 px-2.5 py-0.5 rounded border border-navy-700">--</span>
+          <span id="explorerLoadedFileBadge" class="status-pill pill-cyan text-[11px] font-mono">-- rows</span>
+        </div>
+        <div class="text-xs text-gray-400 font-mono" id="explorerLoadedTimestamp">Status: Ready</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="flex items-center gap-4">
+            <h3 class="card-title"><span class="icon">🔬</span> Raw Data Explorer</h3>
+            <select id="explorerDatasetSelect" class="bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-2 py-1 outline-none">
+              <option value="repeatability">Repeatability CSV</option>
+              <option value="tsr">TSR Test Summary CSV</option>
+              <option value="item">Item Compare CSV</option>
+              <option value="dsa">DSA Compare CSV</option>
+              <option value="bin">Bin Compare CSV</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="explorerSearchInput" placeholder="Live search records..." class="trace-search" oninput="window.app.renderExplorerTable()">
+          </div>
+        </div>
+        <div class="trace-table-container" style="max-height: 600px;">
+          <table class="trace-data-table">
+            <thead id="explorerTableHead"></thead>
+            <tbody id="explorerTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 6: HELP & DOCUMENTATION -->
+    <!-- ===================================================================== -->
+    <section id="tab-help" class="tab-content">
+      <div class="dashboard-grid">
+        <!-- Top Left: Purpose & Workflows -->
+        <div class="card col-6">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">📖</span> System Purpose & Workflows</h3>
+          </div>
+          <div class="text-sm text-gray-300 space-y-3 leading-relaxed">
+            <p>
+              <b>Semiconductor Sanity Check & Shift Analyzer</b> provides automated verification of ATE (Automated Test Equipment) test program revisions, parameter shifts, and bin yield migrations across wafer sort (CP1/CP2/CP3) and final test (FT).
+            </p>
+            <h4 class="text-cyan font-bold">Key Workflows & Features:</h4>
+            <ul class="list-disc list-inside space-y-1 text-xs">
+              <li><b>Drag & Drop Upload:</b> Drop any `.csv` output from your test environment into the top banner. The system automatically inspects headers and updates the dashboard.</li>
+              <li><b>🔁 Repeatability & Gauge R&R:</b> Multi-ECID measurement repeatability, per-die CV% dispersion, intrinsic process capability $C_p$, distribution morphology (`Dist`, `Dist_Repeat`), and temporal drift analysis (`Trend`).</li>
+              <li><b>Number Traceability (Click-to-Trace):</b> Click any KPI card, chart bar, or table cell to open the <i>Traceability Inspector</i> showing the exact mathematical formula and raw CSV rows.</li>
+              <li><b>Chart Fullscreen Maximize (⛶ 一鍵放大 / ESC 還原):</b> Click the `⛶` button on any chart header or double-click any chart to open high-resolution fullscreen modal view. Press <kbd class="px-1.5 py-0.5 rounded bg-navy-800 border border-navy-700 text-cyan text-[11px] font-mono">ESC</kbd> or click ✕ to restore.</li>
+              <li><b>Adjustable Tables (可調式表格):</b> Drag column borders, use the `↔ Name` / `↔ Limit` sliders, or click `↔ Auto-Fit` to display long test names with zero truncation.</li>
+              <li><b>Executive PPTX & PDF Export:</b> Generates professional 16:9 widescreen PowerPoint slides and executive print-ready PDF reports.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Top Right: Metrics Glossary -->
+        <div class="card col-6">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">📐</span> Semiconductor Metrics Glossary</h3>
+          </div>
+          <div class="text-xs text-gray-300 space-y-2 leading-relaxed">
+            <div><b class="text-green">Match Rate:</b> Percentage of test items whose limits, numbers, and units match exactly.</div>
+            <div><b class="text-amber-400">DSA Category (A/B/C/F):</b> Severity categorization of parameter drift:
+              <ul class="list-disc list-inside ml-2 mt-0.5 text-[11px]">
+                <li><b class="text-red">Cat A (Full Shift):</b> Significant shift in Mean (&gt;1.0) or Sigma Ratio (&gt;2.0 or &lt;0.5).</li>
+                <li><b class="text-amber-400">Cat B (Median Shift):</b> Center-point drift in median (P50) or robust sigma.</li>
+                <li><b class="text-cyan">Cat C:</b> Minor marginal parameter drift.</li>
+                <li><b class="text-green">Cat F:</b> Normal / Flat (all properties match perfectly).</li>
+              </ul>
+            </div>
+            <div><b class="text-purple">Binstate Switch Transitions:</b>
+              <ul class="list-disc list-inside ml-2 mt-0.5 text-[11px]">
+                <li><code class="text-green">pp</code>: Pass in OLD ➔ Pass in NEW (Normal)</li>
+                <li><code class="text-red">pf</code>: Pass in OLD ➔ Fail in NEW (Critical yield fallout risk!)</li>
+                <li><code class="text-cyan">fp</code>: Fail in OLD ➔ Pass in NEW (Yield recovery)</li>
+                <li><code class="text-gray-400">ff</code>: Fail in OLD ➔ Fail in NEW (Consistent failure)</li>
+              </ul>
+            </div>
+            <div><b class="text-cyan">Repeatability & Gauge R&R (CV%, Cp, Dist, Trend):</b>
+              <ul class="list-disc list-inside ml-2 mt-0.5 text-[11px]">
+                <li><b class="text-cyan">CV% (變異係數):</b> $\frac{\sigma}{\mu} \times 100\%$，評估同一顆晶粒在多次重複測試中的相對離散程度。低於 1.0% 為極佳，超過 5.0% 代表測試機台或探針接觸存在重複性風險。</li>
+                <li><b class="text-green">Cp (製程能力指標):</b> $\frac{\text{USL} - \text{LSL}}{6\sigma}$，評估測試機台重複性散佈相對於規格公差帶寬的充裕度。$C_p \ge 4.0$ 為優秀能力水準，$C_p < 4.0$ 視為低能力/需關注 (Low Cp)。</li>
+                <li><b class="text-purple">Dist & Dist_Repeat:</b> 形態分佈特徵（Normal, Skewed, Uniform, Bimodal），評估重複量測數據是否具備常態分佈特性。</li>
+                <li><b class="text-amber-400">Trend:</b> 量測時序漂移行為（Stable, Positive Drift, Negative Drift, Level Shift），偵測測試機台是否有熱漂移（Thermal Drift）或接觸劣化。</li>
+              </ul>
+            </div>
+            <div><b class="text-cyan">TSR CPK Groupings:</b>
+              <span class="text-[11px]">Outstanding (&ge;4.0), Capable (1.67–4.0), Marginal / Risk (0.5–1.67), Critical Defect (&lt;0.5).</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle: Shift Severity Metric Explanation -->
+        <div class="card col-12 mt-3">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">⚡</span> Top A/B/C Shift Severity Metric 計算準則 (無量綱標準化指標)</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-300 leading-relaxed">
+            <div>
+              <h4 class="font-bold text-cyan mb-1">1. 為什麼需要標準化指標 (Scale-Invariant Z-Shift)？</h4>
+              <p>
+                在 ATE 測試中，不同參數的物理量綱差異極大（如漏電流為 $\mu\text{A}$、頻率為 $\text{MHz}$、電壓為 $\text{V}$ 或 $\text{mV}$）。若直接累加原始變異數或均值，會使單位較大的參數（如 $\text{mV}$）產生數千倍的數值膨脹，造成 <b>Cat B（中位數偏移）</b> 的長條圖尺寸失真。
+                <br>因此系統全面採用 <b>無量綱標準化效應指標 (Standardized Z-Shift)</b>：
+                <code class="text-cyan block my-1 font-mono p-1 bg-navy-900 rounded border border-navy-700">Z_Shift = |ΔMean| / max(OLD_Sigma, NEW_Sigma)</code>
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">2. 0 – 100 綜合風險嚴重度分級 (Normalized Severity Index)</h4>
+              <p>
+                系統將各參數的均值漂移、變異數倍率偏離度 $|\sigma_{\text{ratio}} - 1.0|$ 與 $\Delta\text{Cpk}$ 衰減懲罰歸一化至 <b>0 – 100 分</b>：
+                <br>• <b class="text-red">Cat A (Full Shift, 70 – 100 分):</b> 均值顯著位移、變異倍率劇增或 Cpk 大幅惡化。
+                <br>• <b class="text-amber-400">Cat B (Median Shift, 40 – 70 分):</b> 中位數 (P50) 或中心點位移，屬於中度製程漂移。
+                <br>• <b class="text-cyan">Cat C (Minor Drift, 15 – 40 分):</b> 輕微邊際漂移。
+                <br>• <b class="text-green">Cat F (Normal, 0 – 15 分):</b> 規格與分佈吻合良好。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle 1.5: Repeatability & Per-ECID Gauge Analysis Guide -->
+        <div class="card col-12 mt-3">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🔁</span> Repeatability & Per-ECID Gauge Analysis Guide (重複性測試與各顆晶粒分析指南)</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-300 leading-relaxed">
+            <div>
+              <h4 class="font-bold text-cyan mb-1">1. 三種層級檢視視角 (Three View Modes)</h4>
+              <p>
+                • <b>視角 1 (ECID Die Summary):</b> 依晶粒 (ECID) 聚合，呈現各 Die 的平均 CV%、最差 Cp、主導分佈與漂移趨勢長條圖。
+                <br>• <b>視角 2 (Test Parameter Summary):</b> 依測試項目聚合，跨所有晶粒統計 Mean CV%、Max CV%、Min Cp 與形態特徵。
+                <br>• <b>視角 3 (Full Detailed Matrix):</b> 展開每一顆 ECID 在各測試項目的完整量測明細，支援即時多條件過濾與欄位排序。
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">2. 快速過濾預設 (Quick Filter Presets)</h4>
+              <p>
+                • <code class="text-cyan">⚡ High CV% (&gt;5%)</code>：一鍵篩選高變異接觸不良項目。
+                <br>• <code class="text-amber-400">⚠️ Low Cp (&lt;4.0)</code>：一鍵篩選能力不足或需關注項目 (Cp < 4.0)。
+                <br>• <code class="text-purple">📈 Drift / Shift Only</code>：一鍵篩選存在時序漂移與位準跳躍之項目。
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">3. 即時數值追溯 (Click-to-Trace Formula)</h4>
+              <p>
+                點擊表格任一列或 Pareto 長條圖，可立即開啟右側追溯抽屜，完整檢視該 ECID/測試項目的 <b>6-Sigma EV</b>、<b>$C_p$ / $\text{CPK}_n$</b>、<b>Ext_Drift</b> 與原始 CSV 行資料。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle 2: Interactive Table & Chart Controls Guide -->
+        <div class="card col-12 mt-3">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🎛️</span> Interactive Table & Chart Controls (可調式表格與圖表操作指南)</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-300 leading-relaxed">
+            <div>
+              <h4 class="font-bold text-cyan mb-1">1. 表格欄寬自由拉伸 (Drag-to-Resize)</h4>
+              <p>
+                在 <b>TSR 測試報告</b> 與 <b>Bin Pareto</b> 表格中，將滑鼠移至表頭欄位右側邊界（游標呈現 <code class="text-cyan">↔</code>），按住左鍵即可自由拉寬或縮小欄位；<b>雙擊表頭把手</b> 則可快速最適化該欄。
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">2. 寬度滑桿與 Auto-Fit 全展開</h4>
+              <p>
+                表格頂部提供 <code class="text-cyan">↔ Name: [slider]</code> 與 <code class="text-cyan">↔ Limit: [slider]</code> 即時滑桿，可一鍵拉寬整欄；點擊 <code class="text-cyan">↔ Auto-Fit</code> 可解除所有寬度限制，完整呈現無截斷。
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">3. 圖表全螢幕放大 (ESC 還原)</h4>
+              <p>
+                所有圖表卡片右上角設有 <code class="text-cyan">⛶</code> 按鈕，亦支援 <b>雙擊圖表</b> 全螢幕放大檢視；按下鍵盤 <kbd class="px-1 py-0.5 rounded bg-navy-800 border border-navy-700 text-cyan text-[10px] font-mono">ESC</kbd> 鍵或點擊 ✕ 即可立即還原。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle 3: Test Ignore & Exclusion Filter Guide -->
+        <div class="card col-12 mt-3">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🚫</span> Test Ignore & Exclusion Filter (自動忽略與排除過濾機制)</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-300 leading-relaxed">
+            <div>
+              <h4 class="font-bold text-cyan mb-1">1. NOT xxx NOT yyy 語法與應用場景</h4>
+              <p>
+                在 ATE 驗證與統計報告中，經常存在大量雜訊測試、Dummy/Empty 項目、設定程式（Setup Patterns）或特定輔助測試（如 <b>PUX</b>、<b>OS_</b>、<b>Continuity</b>、<b>Leakage Setup</b>）。
+                <br>頂部導航與 DSA、TSR 分頁工具列提供 <code class="text-cyan">🚫 Test Ignore</code> 功能，輸入規則後系統會<b>自動排除指定測試</b>，不需手動修改或重新上傳 CSV！
+                <br><b>支援格式：</b>
+                <br>• <code class="text-cyan">not pux, not dummy</code> 或 <code class="text-cyan">!pux, !setup</code>
+                <br>• <code class="text-cyan">pux, dummy, leakage</code>（純關鍵字逗號分隔）
+                <br>• <code class="text-cyan">pux*</code>（字首萬用字元比對）
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">2. 連動重算範圍與即時追溯</h4>
+              <p>
+                • <b>⚡ DSA Parameter Shift:</b> 自動排除 PUX/Dummy 後，重新即時計算 Cat A/B/C 分類總計、Top Shift 貢獻度排名、嚴重度指數與風險矩陣。
+                <br>• <b>📈 TSR Test Summary:</b> 自動排除特定測試後，重新計算總失效數、Loss %、Pareto 圖表與 CPK 能力分級。
+                <br>• <b>🔍 即時追溯 (Trace Ignored):</b> 點擊各分頁的 <code class="text-cyan">🔍 Trace Ignored</code> 按鈕，可於右側追溯抽屜完整檢視所有被排除的測試項目與原始規格。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: CSV Identification Mechanism -->
+        <div class="card col-12 mt-3">
+          <div class="card-header">
+            <h3 class="card-title"><span class="icon">🔍</span> CSV Identification Mechanism (檔名識別 ＋ 內容特徵自動判定)</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-300">
+            <div>
+              <h4 class="font-bold text-cyan mb-1">1. 檔名優先判定 (Filename Heuristics)</h4>
+              <p class="leading-relaxed">
+                系統優先比對檔名關鍵字：
+                <br>• 包含 <code class="text-cyan">repeatability</code>、<code class="text-cyan">repeat_</code>、<code class="text-cyan">rep_</code>、<code class="text-cyan">_rep</code>、<code class="text-cyan">retest</code>、<code class="text-cyan">grr</code>、<code class="text-cyan">gage</code> ➔ 載入 <b>Repeatability Analysis</b>
+                <br>• 包含 <code class="text-purple">tsr</code>、<code class="text-purple">test_summary</code> ➔ 載入 <b>TSR Test Summary</b>
+                <br>• 包含 <code class="text-cyan">itemcompare</code> ➔ 載入 <b>Item Sanity</b>
+                <br>• 包含 <code class="text-amber-400">dsacompare</code> ➔ 載入 <b>DSA Parameter Shift</b>
+                <br>• 包含 <code class="text-green">bincompare</code> ➔ 載入 <b>Bin & Yield Compare</b>
+              </p>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan mb-1">2. 內容結構與欄位特徵兜底 (Content Signature Fallback)</h4>
+              <p class="leading-relaxed">
+                若檔名為自訂名稱，系統自動掃描 CSV 表頭關鍵欄位特徵：
+                <br>• <b>🔁 Repeatability:</b> 偵測 <code class="text-cyan">Coordinate_ECID</code>、<code class="text-cyan">Dist_Repeat</code>、<code class="text-cyan">Ext_Drift</code>、<code class="text-cyan">EV (6-Sigma)</code>、<code class="text-cyan">Kurtosis (Excess)</code> 或同時具備 <code class="text-cyan">ECID</code> ＋ <code class="text-cyan">Mean</code> ＋ <code class="text-cyan">Std</code> ＋ <code class="text-cyan">CV (%)</code>
+                <br>• <b>📈 TSR Test Summary:</b> 偵測 <code class="text-purple">Loss_%</code>、<code class="text-purple">Fail_Count</code>、<code class="text-purple">Cpkn_Group</code>、<code class="text-purple">Distribution</code>
+                <br>• <b>🏷️ Bin Compare:</b> 偵測 <code class="text-green">=== Run Metadata ===</code>、<code class="text-green">Binstate Switch Transitions</code>
+                <br>• <b>⚡ DSA Compare:</b> 偵測 <code class="text-amber-400">DSA_Group</code>、<code class="text-amber-400">Delta_Robust_Sigma</code>、<code class="text-amber-400">OLD_CPKn</code>
+                <br>• <b>🔍 Item Compare:</b> 偵測 <code class="text-cyan">Status</code>、<code class="text-cyan">Comparison</code>、<code class="text-cyan">OLD_Test_Num</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CHART FULLSCREEN MAXIMIZE MODAL -->
+  <div id="chartModal" class="chart-modal-overlay">
+    <div class="chart-modal-backdrop" onclick="window.app.closeChartModal()"></div>
+    <div class="chart-modal-content">
+      <div class="chart-modal-header">
+        <div class="flex items-center gap-3">
+          <span class="text-xl">📊</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="chartModalTitle" class="text-base font-bold text-white">Chart Fullscreen View</h3>
+              <span id="chartModalBadge" class="status-pill pill-cyan text-[11px] font-mono">MAXIMIZED</span>
+            </div>
+            <p id="chartModalSubtitle" class="text-xs text-gray-400 mt-0.5">Press <kbd class="px-1.5 py-0.5 rounded bg-navy-800 border border-navy-700 text-cyan text-[11px] font-mono">ESC</kbd> or click ✕ to restore</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnModalDownloadPng" class="btn btn-secondary text-xs py-1 px-2.5" onclick="window.app.downloadModalChartPng()" title="Download High-Res PNG Image">
+            📷 Download PNG
+          </button>
+          <button class="chart-modal-close-btn" onclick="window.app.closeChartModal()" title="Close Fullscreen (Esc)">
+            ✕
+          </button>
+        </div>
+      </div>
+      <div class="chart-modal-body">
+        <div class="chart-modal-canvas-wrapper" id="chartModalCanvasWrapper">
+          <canvas id="chartModalCanvas"></canvas>
+        </div>
+        <div class="chart-modal-table-wrapper hidden" id="chartModalTableWrapper" style="overflow: auto; flex: 1; width: 100%; height: 100%;">
+          <!-- Maximized Table Content Rendered Here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEST IGNORE & EXCLUSION RULES MODAL (not xxx, not yyy) -->
+  <div id="testIgnoreModal" class="chart-modal-overlay">
+    <div class="chart-modal-backdrop" onclick="window.app.closeTestIgnoreModal()"></div>
+    <div class="chart-modal-content" style="max-width: 650px; max-height: 85vh;">
+      <div class="chart-modal-header">
+        <div class="flex items-center gap-3">
+          <span class="text-xl">🚫</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-white">Test Ignore & Exclusion Filter</h3>
+              <span class="status-pill pill-amber text-[10px] font-mono">AUTOMATIC IGNORE</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-0.5">Exclude dummy tests, noise, setup, or PUX items using <code class="text-cyan">not xxx, not yyy</code> or <code class="text-cyan">!xxx</code> logic</p>
+          </div>
+        </div>
+        <button class="chart-modal-close-btn" onclick="window.app.closeTestIgnoreModal()" title="Close (Esc)">✕</button>
+      </div>
+      <div class="p-4 space-y-4 text-xs text-gray-200" style="overflow-y: auto; max-height: calc(85vh - 70px);">
+        <div>
+          <label class="block font-bold text-gray-300 mb-1.5">Ignore Rules (逗號分隔關鍵字或 NOT 語法):</label>
+          <div class="flex gap-2">
+            <input type="text" id="modalTestIgnoreInput" placeholder="e.g. not pux, not dummy, !setup, not leakage" class="flex-1 bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-3 py-2 outline-none font-mono focus:border-cyan" onkeydown="if(event.key==='Enter') { window.app.setTestIgnoreInput(this.value); window.app.closeTestIgnoreModal(); }">
+            <button class="btn btn-primary text-xs py-2 px-4" onclick="window.app.setTestIgnoreInput(document.getElementById('modalTestIgnoreInput').value); window.app.closeTestIgnoreModal();">✓ Apply Filter</button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1">
+            支援格式：<code class="text-cyan">not pux, not dummy</code>、<code class="text-cyan">!pux, !setup</code>、<code class="text-cyan">pux, dummy</code>、<code class="text-cyan">pux*</code>
+          </p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-gray-300 mb-1.5">Quick Presets (常用半導體忽略項目快捷標籤):</label>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-subtle text-xs py-1 px-2.5 bg-navy-900 border border-navy-700 hover:border-cyan text-cyan" onclick="window.app.addIgnorePreset('pux')">+ not pux (PUX Tests)</button>
+            <button class="btn btn-subtle text-xs py-1 px-2.5 bg-navy-900 border border-navy-700 hover:border-cyan text-cyan" onclick="window.app.addIgnorePreset('dummy')">+ not dummy (Dummy/Empty)</button>
+            <button class="btn btn-subtle text-xs py-1 px-2.5 bg-navy-900 border border-navy-700 hover:border-cyan text-cyan" onclick="window.app.addIgnorePreset('setup')">+ not setup (Setup Pattern)</button>
+            <button class="btn btn-subtle text-xs py-1 px-2.5 bg-navy-900 border border-navy-700 hover:border-cyan text-cyan" onclick="window.app.addIgnorePreset('os_')">+ not os_ (Open/Short)</button>
+            <button class="btn btn-subtle text-xs py-1 px-2.5 bg-navy-900 border border-navy-700 hover:border-cyan text-cyan" onclick="window.app.addIgnorePreset('leakage')">+ not leakage</button>
+            <button class="btn btn-subtle text-xs py-1 px-2.5 bg-navy-900 border border-navy-700 hover:border-cyan text-cyan" onclick="window.app.addIgnorePreset('continuity')">+ not continuity</button>
+          </div>
+        </div>
+
+        <div class="bg-navy-900/80 p-3 rounded-lg border border-navy-700 space-y-2">
+          <div class="font-bold text-cyan flex items-center justify-between">
+            <span>📊 Live Ignore Statistics (即時過濾影響統計):</span>
+            <span id="modalIgnoreActiveRulesBadge" class="status-pill pill-cyan text-[10px]">No Rules</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div class="bg-navy-800/80 p-2.5 rounded border border-navy-700">
+              <div class="text-gray-400 truncate">⚡ DSA Shift:</div>
+              <div class="font-mono font-bold text-white text-xs mt-0.5"><span id="modalDsaIgnoredCount">0</span> / <span id="modalDsaTotalCount">0</span></div>
+            </div>
+            <div class="bg-navy-800/80 p-2.5 rounded border border-navy-700">
+              <div class="text-gray-400 truncate">📈 TSR Summary:</div>
+              <div class="font-mono font-bold text-white text-xs mt-0.5"><span id="modalTsrIgnoredCount">0</span> / <span id="modalTsrTotalCount">0</span></div>
+            </div>
+            <div class="bg-navy-800/80 p-2.5 rounded border border-navy-700">
+              <div class="text-gray-400 truncate">🔬 Repeatability:</div>
+              <div class="font-mono font-bold text-white text-xs mt-0.5"><span id="modalRepIgnoredCount">0</span> / <span id="modalRepTotalCount">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-navy-700">
+          <button class="btn btn-subtle text-xs py-1.5 px-3 text-red-400 hover:text-red-300" onclick="window.app.clearTestIgnore(); window.app.closeTestIgnoreModal();">↺ Clear All Ignore Rules</button>
+          <button class="btn btn-secondary text-xs py-1.5 px-4" onclick="window.app.closeTestIgnoreModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT MODULES -->
+  <script src="js/default_data.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/traceability.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

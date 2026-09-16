@@ -1,0 +1,332 @@
+Create a SINGLE-SLIDE executive infographic image in a professional semiconductor engineering dashboard style.
+=====================================================
+TITLE
+SANITY CHECK COMPARISON SUMMARY
+SUBTITLE
+OLD vs NEW Program Item Comparison
+=====================================================
+THEME
+Executive dashboard
+Semiconductor validation / test engineering review
+Dark navy blue background
+White typography
+Clean KPI cards
+Professional engineering charts
+Presentation-ready
+Management review style
+No decorative financial elements
+NXP / ATE / Product Engineering audience
+High information density
+Executive-level readability
+Modern semiconductor engineering visual design
+Corporate PowerPoint quality
+=====================================================
+PROGRAM INFORMATION PANEL
+Display immediately below title.
+LEFT SIDE
+OLD PROGRAM INFORMATION
+OLD Stage: {OLD_STAGE}
+OLD Program: {OLD_PROGRAM}
+OLD TP Version: {OLDTPVERSION}
+OLD Release: {OLD_RELEASE}
+RIGHT SIDE
+NEW PROGRAM INFORMATION
+NEW Stage: {NEW_STAGE}
+NEW Program: {NEW_PROGRAM}
+NEW TP Version: {NEWTPVERSION}
+NEW Release: {NEW_RELEASE}
+STYLE
+Side-by-side comparison card
+Engineering metadata appearance
+White text on navy background
+Program revision differences highlighted in blue
+Arrow showing migration direction
+Compact review panel
+Display:
+OLD → NEW
+=====================================================
+REPORT METADATA
+Position: Top Right Corner
+Display:
+Report Generated: {REPORT_TIMESTAMP}
+Source File: {CSV_FILENAME}
+Comparison: {OLDPROGRAM} vs {NEWPROGRAM}
+IMPORTANT
+Use actual timestamp extracted from source file.
+DO NOT use placeholder dates.
+=====================================================
+DATA INPUT
+Total Records: {TOTAL_RECORDS}
+Status Breakdown:
+Match: {MATCH_COUNT}
+Name Change: {NAMECHANGECOUNT}
+Added: {ADDED_COUNT}
+Removed: {REMOVED_COUNT}
+Limit Change: {LIMITCHANGECOUNT}
+Other Changes: {OTHERCHANGECOUNT}
+=====================================================
+DERIVED METRICS
+Match Rate: {MATCH_RATE}%
+Change Rate: {CHANGE_RATE}%
+Name Change Rate: {NAMECHANGERATE}%
+Added Rate: {ADDED_RATE}%
+Removed Rate: {REMOVED_RATE}%
+Limit Change Rate: {LIMITCHANGERATE}%
+Other Change Rate: {OTHERCHANGERATE}%
+Net Change: {NET_CHANGE}
+Total Changed Records: {TOTALCHANGECOUNT}
+=====================================================
+TOP KPI ROW
+Create 7 KPI cards.
+Card 1
+Total Records {TOTAL_RECORDS}
+Card 2
+Match Count {MATCH_COUNT}
+Card 3
+Name Change Count {NAMECHANGECOUNT}
+Card 4
+Added Count {ADDED_COUNT}
+Card 5
+Removed Count {REMOVED_COUNT}
+Card 6
+Limit Change Count {LIMITCHANGECOUNT}
+Card 7
+Overall Change Rate {CHANGE_RATE}%
+STYLE
+Rounded cards
+White card background
+Semiconductor dashboard appearance
+Consistent iconography
+COLORS
+Match: Green
+Name Change: Blue
+Added: Teal
+Removed: Red
+Limit Change: Orange
+Other: Purple
+=====================================================
+MIDDLE LEFT
+DONUT CHART
+Title:
+Status Distribution
+Display Categories:
+Match
+Name Change
+Added
+Removed
+Limit Change
+Other Changes
+Requirements:
+Show
+Count
+Percentage
+Center Label:
+Total Records
+Legend:
+Status Count Percentage
+=====================================================
+MIDDLE CENTER
+PARETO CHART
+Title:
+Status Breakdown
+Bars:
+Match
+Name Change
+Removed
+Added
+Limit Change
+Other Changes
+Requirements:
+Primary Axis: Count
+Secondary Axis: Cumulative %
+Display:
+Individual count labels
+Cumulative percentage line
+Sort:
+Highest to Lowest
+=====================================================
+MIDDLE RIGHT
+CHANGE IMPACT SUMMARY
+Display:
+Added Records: {ADDED_COUNT}
+Removed Records: {REMOVED_COUNT}
+Net Change: {NET_CHANGE}
+Impact Level: High / Medium / Low
+Impact Logic
+HIGH
+Removed > Added
+OR
+Change Rate > 10%
+OR
+Net Change exceeds threshold
+MEDIUM
+Change Rate between 3% and 10%
+LOW
+Change Rate below 3%
+Display
+Added vs Removed
+Net Structural Impact
+Impact Badge
+HIGH IMPACT MEDIUM IMPACT LOW IMPACT
+=====================================================
+BOTTOM LEFT
+NAME CHANGE ANALYSIS
+Focus ONLY on records where:
+Status = Name Change
+Purpose
+Identify where the rename activities are concentrated.
+Title
+Top Name Change Analysis
+LAYOUT
+LEFT SIDE
+Horizontal Bar Chart
+Title
+Top Name Change Contributors
+Show Top 10 Contributors
+Group By: {GROUPING_COLUMN}
+Display
+Category
+Count
+% of Name Change Population
+Color
+Blue
+RIGHT SIDE
+Name Change Summary Card
+Display
+Total Name Change Records: {NAMECHANGECOUNT}
+Name Change Rate: {NAMECHANGERATE}%
+Affected Categories: {AFFECTEDCATEGORYCOUNT}
+Largest Contributor: {TOPCATEGORYNAME}
+Largest Contributor Percentage: {TOPCATEGORYPERCENT}%
+Dominant Naming Migration:
+OLD: {TOPOLDNAME}
+NEW: {TOPNEWNAME}
+OPTIONAL TABLE
+Columns
+Rank
+OLD Item Name
+NEW Item Name
+Count
+Contribution %
+Top 5 records only.
+AUTO-GENERATED INSIGHTS
+✓ Name Change records represent {NameCHANGERATE}% of total data.
+✓ Total affected records: {NameCHANGECOUNT}
+✓ Largest contributor: {TOPCATEGORYNAME}
+✓ Largest contributor represents {TOPCATEGORYPERCENT}% of Name Changes.
+✓ Most common migration pattern:
+OLD: {TOPOLDNAME}
+NEW: {TOPNEWNAME}
+=====================================================
+BOTTOM CENTER
+ENGINEERING SCORECARD
+Metrics
+Match Rate
+Name Change Rate
+Added Rate
+Removed Rate
+Limit Change Rate
+Overall Change Rate
+Columns
+Metric
+Count
+Percentage
+Risk Rating
+Threshold
+RISK COLORS
+GREEN
+LOW RISK
+YELLOW
+REVIEW
+RED
+HIGH RISK
+THRESHOLDS
+Match Rate
+99.5% Green
+95% to 99.5% Yellow
+< 95% Red
+Overall Change Rate
+< 3% Green
+3% to 10% Yellow
+10% Red
+=====================================================
+BOTTOM RIGHT
+EXECUTIVE CONCLUSIONS
+Generate findings automatically.
+Format
+✓ Match records represent {MATCH_RATE}% of total comparison data.
+✓ Name changes account for {NAMECHANGERATE}% of all records.
+✓ Structural changes detected:
+• {ADDED_COUNT} added records
+• {REMOVED_COUNT} removed records
+✓ Limit modifications affect {LIMITCHANGECOUNT} records.
+✓ Net program impact:
+{NET_CHANGE}
+✓ Program revision comparison:
+OLD: {OLD_PROGRAM}
+NEW: {NEW_PROGRAM}
+✓ Name Change concentration:
+Largest Contributor: {TOPCATEGORYNAME}
+Contribution: {TOPCATEGORYPERCENT}%
+Dominant migration:
+OLD: {TOPOLDNAME}
+NEW: {TOPNEWNAME}
+=====================================================
+OVERALL ASSESSMENT
+PASS
+Conditions
+Match Rate > 99.5%
+AND
+Added = 0
+AND
+Removed = 0
+AND
+Limit Change = 0
+AND
+Change Rate < 0.5%
+
+MINOR CHANGES
+Conditions
+Match Rate between 95% and 99.5%
+AND
+Change Rate < 5%
+
+REVIEW REQUIRED
+Conditions
+Match Rate between 80% and 95%
+OR
+Moderate structural changes exist
+
+MAJOR DIFFERENCES
+Conditions
+Match Rate < 80%
+OR
+Overall Change Rate > 10%
+OR
+Large Added/Removed impact
+OR
+Significant Limit Changes
+OR
+Large Name Change population
+=====================================================
+ASSESSMENT REQUIREMENTS
+DO NOT determine PASS based solely on Match Rate.
+Assessment must consider:
+Match Rate
+Name Change Rate
+Added Records
+Removed Records
+Limit Changes
+Net Change Impact
+Total Change Rate
+Program Revision Difference
+TP Version Difference
+Release Difference
+=====================================================
+FOOTER
+Source: Item Comparison Report
+Generated From: CSV Sanity Check Analysis
+Program Comparison: {OLDPROGRAM} vs {NEWPROGRAM}
+TP Version: {OLDTPVERSION} → {NEWTPVERSION}
+Report Timestamp: {REPORT_TIMESTAMP}
+

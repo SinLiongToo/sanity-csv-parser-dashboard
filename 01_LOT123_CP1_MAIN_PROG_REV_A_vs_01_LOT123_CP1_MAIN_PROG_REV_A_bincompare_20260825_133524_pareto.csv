@@ -1,0 +1,52 @@
+=== Run Metadata ===
+OLD Stage,CP1,NEW Stage,CP1
+OLD Tester,ATE-01,NEW Tester,ATE-01
+OLD Loadboard,N/A,NEW Loadboard,N/A
+
+OLD Bin Distribution (Hard Bin)
+OLD_Hardbin,OLD_BinName,OLD_BinState,Count,Percentage
+1,HB_PASS,P,182,92.39%
+3,HB_Leakage,F,8,4.06%
+5,HB_OpenShort,F,4,2.03%
+7,HB_Frequency,F,3,1.52%
+
+NEW Bin Distribution (Hard Bin)
+NEW_Hardbin,NEW_BinName,NEW_BinState,Count,Percentage
+1,HB_PASS,P,176,89.34%
+5,HB_OpenShort,F,10,5.08%
+3,HB_Leakage,F,8,4.06%
+7,HB_Frequency,F,3,1.52%
+
+Binstate Switch Transitions (pp/fp/pf/ff)
+Transition,Count,Percentage
+pp,176,89.34%
+ff,15,7.61%
+pf,6,3.05%
+
+OLD Soft Bin Distribution
+Soft_Bin_Name,Count,Percentage
+SB_PASS,182,92.39%
+SB_Leakage_High,8,4.06%
+SB_OpenShort_VSS,4,2.03%
+SB_Freq_Low,3,1.52%
+
+NEW Soft Bin Distribution
+Soft_Bin_Name,Count,Percentage
+SB_PASS,176,89.34%
+SB_OpenShort_VSS,10,5.08%
+SB_Leakage_High,8,4.06%
+SB_Freq_Low,3,1.52%
+
+OLD First Fail Parameter Distribution
+First_Fail_Test_Num,First_Fail_Test_Name,Count,Percentage
+N/A,N/A,182,92.39%
+1020,Standby_uA,8,4.06%
+1010,VCC_mA,4,2.03%
+1030,Clock_MHz,3,1.52%
+
+NEW First Fail Parameter Distribution
+First_Fail_Test_Num,First_Fail_Test_Name,Count,Percentage
+N/A,N/A,176,89.34%
+1010,VCC_mA,10,5.08%
+1020,Standby_uA,8,4.06%
+2030,Clock_MHz,3,1.52%
