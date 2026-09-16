@@ -2859,7 +2859,7 @@ class SemiconductorApp {
         const isChecked = set.has('ALL') || set.has(ecid);
         return `
           <label class="multiselect-item">
-            <input type="checkbox" value="${safeEsc(ecid)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('ecid', '${safeEsc(ecid)}', this.checked)">
+            <input type="checkbox" value="${safeEsc(ecid)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('ecid', this.value, this.checked)">
             <span class="truncate font-mono text-xs">${safeEsc(ecid)}</span>
           </label>
         `;
@@ -2881,7 +2881,7 @@ class SemiconductorApp {
         const isChecked = set.has('ALL') || set.has(tName);
         return `
           <label class="multiselect-item">
-            <input type="checkbox" value="${safeEsc(tName)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('test', '${safeEsc(tName)}', this.checked)">
+            <input type="checkbox" value="${safeEsc(tName)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('test', this.value, this.checked)">
             <span class="truncate text-xs">${safeEsc(tName)}</span>
           </label>
         `;
@@ -2901,7 +2901,7 @@ class SemiconductorApp {
         const isChecked = set.has('ALL') || set.has(t.name);
         return `
           <label class="multiselect-item">
-            <input type="checkbox" value="${safeEsc(t.name)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('trend', '${safeEsc(t.name)}', this.checked)">
+            <input type="checkbox" value="${safeEsc(t.name)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('trend', this.value, this.checked)">
             <span class="truncate text-xs">${safeEsc(t.name)}</span>
             <span class="text-[10px] text-gray-400 ml-auto font-mono">(${t.count})</span>
           </label>
@@ -2919,7 +2919,7 @@ class SemiconductorApp {
         const isChecked = set.has('ALL') || set.has(d.name);
         return `
           <label class="multiselect-item">
-            <input type="checkbox" value="${safeEsc(d.name)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('dist', '${safeEsc(d.name)}', this.checked)">
+            <input type="checkbox" value="${safeEsc(d.name)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('dist', this.value, this.checked)">
             <span class="truncate text-xs">${safeEsc(d.name)}</span>
             <span class="text-[10px] text-gray-400 ml-auto font-mono">(${d.count})</span>
           </label>
@@ -2937,7 +2937,7 @@ class SemiconductorApp {
         const isChecked = set.has('ALL') || set.has(dr.name);
         return `
           <label class="multiselect-item">
-            <input type="checkbox" value="${safeEsc(dr.name)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('distRepeat', '${safeEsc(dr.name)}', this.checked)">
+            <input type="checkbox" value="${safeEsc(dr.name)}" ${isChecked ? 'checked' : ''} onchange="window.app.onMultiSelectOptionToggle('distRepeat', this.value, this.checked)">
             <span class="truncate text-xs">${safeEsc(dr.name)}</span>
             <span class="text-[10px] text-gray-400 ml-auto font-mono">(${dr.count})</span>
           </label>
@@ -3815,7 +3815,31 @@ class SemiconductorApp {
     const explorerSelect = document.getElementById('explorerDatasetSelect');
     if (!explorerSelect) return;
 
-    explorerSelect.onchange = () => this.renderExplorerTable();
+    explorerSelect.onchange = () => {
+      this.state.explorerRowLimit = 500;
+      this.renderExplorerTable();
+    };
+    this.state.explorerRowLimit = 500;
+    this.renderExplorerTable();
+  }
+
+  onExplorerSearchInput() {
+    if (this._explorerSearchDebounceTimer) {
+      clearTimeout(this._explorerSearchDebounceTimer);
+    }
+    this._explorerSearchDebounceTimer = setTimeout(() => {
+      this.state.explorerRowLimit = 500;
+      this.renderExplorerTable();
+    }, 150);
+  }
+
+  loadMoreExplorerRows() {
+    this.state.explorerRowLimit = (this.state.explorerRowLimit || 500) + 1000;
+    this.renderExplorerTable();
+  }
+
+  showAllExplorerRows() {
+    this.state.explorerRowLimit = 2500;
     this.renderExplorerTable();
   }
 
@@ -3881,7 +3905,11 @@ class SemiconductorApp {
       return;
     }
 
-    tbody.innerHTML = dataRows.map((r, idx) => `
+    const limit = this.state.explorerRowLimit || 500;
+    const displayList = dataRows.slice(0, limit);
+    const hasMore = dataRows.length > limit;
+
+    let rowsHtml = displayList.map((r, idx) => `
       <tr>
         <td class="font-mono opacity-75">${r._rawRowIndex || (idx + 1)}</td>
         ${headers.map(h => {
@@ -3890,6 +3918,24 @@ class SemiconductorApp {
         }).join('')}
       </tr>
     `).join('');
+
+    if (hasMore) {
+      rowsHtml += `
+        <tr id="explorerLoadMoreRow">
+          <td colspan="${headers.length + 1}" class="text-center py-4 bg-navy-900/60">
+            <span class="text-xs text-gray-400 mr-3">Showing ${limit} of ${dataRows.length} records</span>
+            <button type="button" class="btn btn-secondary text-xs py-1 px-3 font-bold mr-2" onclick="window.app.loadMoreExplorerRows()">
+              ⬇ Load More (+1000)
+            </button>
+            <button type="button" class="btn btn-primary text-xs py-1 px-3 font-bold" onclick="window.app.showAllExplorerRows()">
+              Show All (max 2500)
+            </button>
+          </td>
+        </tr>
+      `;
+    }
+
+    tbody.innerHTML = rowsHtml;
   }
 
   /**
