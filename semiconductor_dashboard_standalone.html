@@ -10925,6 +10925,24 @@ class SemiconductorApp {
     this.onRepeatabilityFilterChange(false);
   }
 
+  /**
+   * Full list of distinct values for a repeatability multi-select filter type,
+   * used to materialize the implicit "ALL" state into an explicit set when the
+   * user deselects a single option out of ALL (rather than wiping everything).
+   */
+  getAllFilterValues(type) {
+    const rep = this.state.repeatabilityAnalysis;
+    if (!rep) return [];
+    switch (type) {
+      case 'ecid': return Array.from(new Set(rep.perEcidStats.map(e => e.ecid)));
+      case 'test': return Array.from(new Set(rep.perTestStats.map(t => t.testName)));
+      case 'trend': return rep.trendTable.map(t => t.name);
+      case 'dist': return rep.distTable.map(d => d.name);
+      case 'distRepeat': return rep.distRepeatTable.map(dr => dr.name);
+      default: return [];
+    }
+  }
+
   onMultiSelectOptionToggle(type, value, isChecked) {
     const cap = type.charAt(0).toUpperCase() + type.slice(1);
     const setKey = `selected${cap}s`;
@@ -10943,11 +10961,16 @@ class SemiconductorApp {
       }
     } else {
       if (set.has('ALL')) {
-        set.clear();
         if (isChecked) {
-          set.add(value);
+          // Already implicitly selected under ALL; nothing to change.
         } else {
-          set.add('NONE');
+          // Deselecting one option out of the implicit "everything" set: materialize
+          // ALL into an explicit set of every other value instead of wiping the lot.
+          const allValues = this.getAllFilterValues(type);
+          set.clear();
+          allValues.forEach(v => set.add(v));
+          set.delete(value);
+          if (set.size === 0) set.add('NONE');
         }
       } else if (set.has('NONE')) {
         set.clear();
