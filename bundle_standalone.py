@@ -123,7 +123,7 @@ require('./js/export.js');
 require('./js/app.js');
 
 window.app.init();
-['overview', 'item', 'dsa', 'bin', 'tsr', 'repeatability', 'explorer'].forEach(tab => window.app.switchTab(tab));
+['overview', 'item', 'dsa', 'bin', 'tsr', 'repeatability', 'explorer', 'help'].forEach(tab => window.app.switchTab(tab));
 window.app.setTestIgnoreInput('not pux, not dummy');
 ['ALL', 'HIGH_CV', 'LOW_CP', 'DRIFT_ONLY'].forEach(preset => window.app.setRepeatabilityPreset(preset));
 window.app.updateHeaderMeta();

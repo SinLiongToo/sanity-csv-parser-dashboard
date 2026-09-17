@@ -17,8 +17,9 @@
   3. ⚡ **DSA Parameter Shift**：依據 `DSA.txt` 規格呈現 Category A/B/C Pareto、Full Shift vs. Median Shift 優先矩陣、Top 10 參數漂移排行、領域（Domain）風險分析與主管速覽。
   4. 🏷️ **Bin & Yield Compare**：Hard Bin / Soft Bin 良率對比圖、Binstate 狀態轉換（`pp`, `pf`, `fp`, `ff` 轉移矩陣，醒目標示 `pf` 良率損失風險）、First Fail 參數 Pareto。
   5. 📈 **TSR Test Summary**：**Parameter Failure Pareto（雙軸累計失效率）、CPK 製程能力分組圓餅圖（Critical/Marginal/Capable/Over-spec）、Distribution 分佈形態長條圖（Normal/Bimodal Double/Skewed），以及完整參數極限與統計矩陣資料表。**
-  6. 🔬 **Trace Explorer**：支援全欄位即時搜尋、篩選與 CSV 子集匯出。
-  7. ❓ **Help & Documentation**：內建半導體指標字典、計算公式與 CSV 規格手冊。
+  6. 🔁 **Repeatability Analysis**：解析重複性量測 CSV，提供 **per-ECID / per-test / detail** 三種檢視模式，內建 CV%、Cp、CPKn 統計、Dist / Dist_Repeat / Trend 分類徽章，以及 ECID、Test、Trend、Dist、Dist_Repeat **多選（Multi-Select）篩選器**與 High CV / Low Cp / Drift Only 快速預設。所有表格均採分頁上限（300–2,500 筆）與「Load More / Show All」機制，避免大型晶圓資料集造成瀏覽器凍結。
+  7. 🔬 **Trace Explorer**：支援全欄位即時搜尋、篩選與 CSV 子集匯出。表格採**虛擬捲動（Virtual Scrolling）**渲染，DOM 中永遠只保留視窗內的少數 `<tr>`，捲動軸仍完整代表整份資料，因此無論是 5 萬筆以上的 Repeatability 大檔，都能順暢捲動檢視「全部」資料而不會凍結或當機。
+  8. ❓ **Help & Documentation**：內建半導體指標字典、計算公式與 CSV 規格手冊。
 
 ### 2. 即時 CSV 解析與動態更新 (Live Drag & Drop Parser)
 - 頂部支援 **拖曳上傳（Drag & Drop）** 或點擊上傳多個 CSV 檔案。
@@ -130,6 +131,18 @@ SANITY_CSV_PARSER/
 
 ## 📝 變更記錄 (Change Log)
 
+- **v1.5.0 (2026-09-17)**
+  - 🛡️ **修復 Repeatability 分頁使用篩選（Filter）時瀏覽器凍結/當機的根本問題**：
+    - **根因**：`Raw Data Explorer`（🔬 Trace Explorer）預設資料集即為 Repeatability CSV，其表格渲染函式 `renderExplorerTable()` 過去沒有任何筆數上限，會把整份資料集（可達 5 萬筆以上）一次性塞進 DOM；即時搜尋框每打一個字也會重新觸發一次無上限渲染，篩選/搜尋動作越多，畫面卡住時間越長，最終被瀏覽器判定為沒有回應。實測 5.4 萬筆資料上傳後單這一步就佔用 8.75 秒（總計 12.7 秒）。
+    - **虛擬捲動（Virtual Scrolling）**：改為只在 DOM 中渲染目前捲動視窗內的少數 `<tr>`（約 30–40 筆），上下以 spacer row 撐開正確的捲動軸高度，使用者可捲動看到「完整」資料而不受任何筆數上限限制，DOM 節點數不隨資料量增加。
+    - **搜尋輸入防抖（Debounce）**：即時搜尋框從「每個按鍵都重繪」改為 120ms 防抖，避免連續輸入時堆疊觸發重繪。
+  - 🐞 **修復多選篩選器（ECID / Test / Trend / Dist / Dist_Repeat）預設全選狀態下，取消單一選項會清空全部選項的問題**：
+    - 原邏輯在偵測到目前為隱含「全選（ALL）」狀態時，取消勾選任一項會直接清空整個選取集合並標記為 `NONE`。修正為先將「全選」展開為所有實際選項的明確清單，再從中移除使用者取消的那一項，其餘選項維持勾選。
+  - 🐞 **修復多選篩選器 checkbox 名稱含單引號（`'`）時點擊會失效的問題**：
+    - 原本 `onchange` 內嵌字串會把 HTML 轉義過的值（`&#039;`）再解碼回單引號，破壞內嵌 JS 字串語法。改為直接讀取 `this.value`，徹底避開雙重轉義問題。
+  - 🎨 **修復頂部標題列重複顯示兩個「Updated: 時間戳記」的問題**：
+    - 移除左側品牌副標題（`#headerSubTitle`）中重複的更新時間，只保留右上角 🕒 徽章（`#headerTimestamp`）作為單一顯示來源。
+  - 📖 **README 補齊遺漏的 Repeatability Analysis 分頁說明**（原文件的 7 個分頁清單中缺漏此頁）。
 - **v1.4.0 (2026-08-25)**
   - 🔍 **TSR 統計明細表全欄位「多條件過濾 (Filter)」與「雙向排序 (Sort)」功能上線**：
     - **全 12 欄雙向點擊排序 (Bidirectional Column Sorting)**：
