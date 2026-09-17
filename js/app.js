@@ -173,7 +173,7 @@ class SemiconductorApp {
       // 2. Main Title Subtext
       const brandSub = document.querySelector('.brand-title p') || document.getElementById('headerSubTitle');
       if (brandSub) {
-        brandSub.textContent = `DATA ANALYSIS EXECUTIVE DASHBOARD • ATE VALIDATION PLATFORM @ Masa Tu • Updated: ${finalTs}`;
+        brandSub.textContent = `DATA ANALYSIS EXECUTIVE DASHBOARD • ATE VALIDATION PLATFORM @ Masa Tu`;
       }
 
       // 3. Overview Snapshot Timestamp
