@@ -3815,11 +3815,22 @@ class SemiconductorApp {
     const explorerSelect = document.getElementById('explorerDatasetSelect');
     if (!explorerSelect) return;
 
-    explorerSelect.onchange = () => {
-      this.state.explorerRowLimit = 500;
-      this.renderExplorerTable();
-    };
-    this.state.explorerRowLimit = 500;
+    explorerSelect.onchange = () => this.renderExplorerTable();
+
+    const container = document.getElementById('explorerTableContainer');
+    if (container && !container._virtualScrollBound) {
+      container._virtualScrollBound = true;
+      let rafPending = false;
+      container.addEventListener('scroll', () => {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          this.renderExplorerVirtualRows();
+        });
+      });
+    }
+
     this.renderExplorerTable();
   }
 
@@ -3828,19 +3839,75 @@ class SemiconductorApp {
       clearTimeout(this._explorerSearchDebounceTimer);
     }
     this._explorerSearchDebounceTimer = setTimeout(() => {
-      this.state.explorerRowLimit = 500;
       this.renderExplorerTable();
-    }, 150);
+    }, 120);
   }
 
-  loadMoreExplorerRows() {
-    this.state.explorerRowLimit = (this.state.explorerRowLimit || 500) + 1000;
-    this.renderExplorerTable();
-  }
+  /**
+   * Virtualized row window: only the rows currently scrolled into view (plus a small
+   * buffer) are ever real <tr> elements in the DOM. Top/bottom spacer rows reserve the
+   * correct scroll height so the scrollbar still represents the full dataset, letting
+   * users scroll through every row of even a 50k+ row CSV without the DOM ever holding
+   * more than a few dozen live rows at once.
+   */
+  renderExplorerVirtualRows() {
+    const v = this._explorerVirtual;
+    const container = document.getElementById('explorerTableContainer');
+    const tbody = document.getElementById('explorerTableBody');
+    if (!v || !container || !tbody) return;
 
-  showAllExplorerRows() {
-    this.state.explorerRowLimit = 2500;
-    this.renderExplorerTable();
+    const { dataRows, headers, safeEsc } = v;
+    const total = dataRows.length;
+    const rowHeight = v.rowHeight || 31;
+    const buffer = 10;
+    const scrollTop = container.scrollTop;
+    const viewportHeight = container.clientHeight || 480;
+
+    const startIdx = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+    const visibleCount = Math.ceil(viewportHeight / rowHeight) + buffer * 2;
+    const endIdx = Math.min(total, startIdx + visibleCount);
+
+    const topHeight = startIdx * rowHeight;
+    const bottomHeight = Math.max(0, (total - endIdx) * rowHeight);
+    const colspan = headers.length + 1;
+
+    let rowsHtml = '';
+    if (topHeight > 0) {
+      rowsHtml += `<tr aria-hidden="true" style="height:${topHeight}px;"><td colspan="${colspan}" style="padding:0;border:none;"></td></tr>`;
+    }
+
+    for (let idx = startIdx; idx < endIdx; idx++) {
+      const r = dataRows[idx];
+      rowsHtml += `
+        <tr>
+          <td class="font-mono opacity-75">${r._rawRowIndex || (idx + 1)}</td>
+          ${headers.map(h => {
+            let val = r[h] !== undefined ? r[h] : '';
+            return `<td title="${safeEsc(val)}"><span class="cell-truncate">${safeEsc(val)}</span></td>`;
+          }).join('')}
+        </tr>
+      `;
+    }
+
+    if (bottomHeight > 0) {
+      rowsHtml += `<tr aria-hidden="true" style="height:${bottomHeight}px;"><td colspan="${colspan}" style="padding:0;border:none;"></td></tr>`;
+    }
+
+    tbody.innerHTML = rowsHtml;
+
+    // Self-correct the assumed row height once from a real rendered row so the
+    // spacer math stays accurate across fonts/zoom levels, then re-render once.
+    if (!v._corrected) {
+      const sample = tbody.querySelector('tr:not([aria-hidden])');
+      if (sample) {
+        const measured = sample.getBoundingClientRect().height;
+        v._corrected = true;
+        if (measured > 0 && Math.abs(measured - rowHeight) > 1) {
+          v.rowHeight = measured;
+          this.renderExplorerVirtualRows();
+        }
+      }
+    }
   }
 
   renderExplorerTable() {
@@ -3848,6 +3915,7 @@ class SemiconductorApp {
     const type = selector ? selector.value : 'item';
     const tbody = document.getElementById('explorerTableBody');
     const thead = document.getElementById('explorerTableHead');
+    const container = document.getElementById('explorerTableContainer');
     const searchInput = document.getElementById('explorerSearchInput');
     const query = (searchInput && searchInput.value) ? String(searchInput.value).toLowerCase().trim() : '';
 
@@ -3902,40 +3970,19 @@ class SemiconductorApp {
 
     if (dataRows.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${headers.length + 1}" class="text-center py-6 opacity-75">No records to display.</td></tr>`;
+      this._explorerVirtual = null;
       return;
     }
 
-    const limit = this.state.explorerRowLimit || 500;
-    const displayList = dataRows.slice(0, limit);
-    const hasMore = dataRows.length > limit;
-
-    let rowsHtml = displayList.map((r, idx) => `
-      <tr>
-        <td class="font-mono opacity-75">${r._rawRowIndex || (idx + 1)}</td>
-        ${headers.map(h => {
-          let val = r[h] !== undefined ? r[h] : '';
-          return `<td title="${safeEsc(val)}"><span class="cell-truncate">${safeEsc(val)}</span></td>`;
-        }).join('')}
-      </tr>
-    `).join('');
-
-    if (hasMore) {
-      rowsHtml += `
-        <tr id="explorerLoadMoreRow">
-          <td colspan="${headers.length + 1}" class="text-center py-4 bg-navy-900/60">
-            <span class="text-xs text-gray-400 mr-3">Showing ${limit} of ${dataRows.length} records</span>
-            <button type="button" class="btn btn-secondary text-xs py-1 px-3 font-bold mr-2" onclick="window.app.loadMoreExplorerRows()">
-              ⬇ Load More (+1000)
-            </button>
-            <button type="button" class="btn btn-primary text-xs py-1 px-3 font-bold" onclick="window.app.showAllExplorerRows()">
-              Show All (max 2500)
-            </button>
-          </td>
-        </tr>
-      `;
-    }
-
-    tbody.innerHTML = rowsHtml;
+    this._explorerVirtual = {
+      dataRows,
+      headers,
+      safeEsc,
+      rowHeight: this._explorerVirtual?.rowHeight || 31,
+      _corrected: false
+    };
+    if (container) container.scrollTop = 0;
+    this.renderExplorerVirtualRows();
   }
 
   /**
