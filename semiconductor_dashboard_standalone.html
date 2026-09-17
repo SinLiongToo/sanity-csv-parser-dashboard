@@ -1796,6 +1796,12 @@ body.light-theme .multiselect-item:hover {
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-400 font-mono" id="itemLoadedTimestamp">Updated: --</span>
+          <span class="text-xs font-bold text-gray-300 ml-2">Comparison:</span>
+          <select id="itemLabelModeSelect" class="bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-2 py-1 outline-none" onchange="window.app.setItemLabelMode(this.value)" title="Some Item Compare CSVs compare OLD vs NEW; others compare NEW vs a PROPOSED revision. Switch how this tab labels the two sides.">
+            <option value="AUTO">Auto-detect from CSV</option>
+            <option value="OLD_NEW">OLD vs NEW</option>
+            <option value="NEW_PROPOSE">NEW vs PROPOSE</option>
+          </select>
           <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="document.getElementById('csvFileInput').click()" title="Load another Item Compare CSV file">📂 Change File</button>
           <span id="itemLoadedFileSize" class="text-xs font-mono text-cyan bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="Item Compare CSV File Size"></span>
         </div>
@@ -1821,12 +1827,12 @@ body.light-theme .multiselect-item:hover {
         <div class="kpi-card kpi-cyan">
           <div class="kpi-label"><span>Added Count</span><span class="trace-hint">Trace</span></div>
           <div id="kpiAddedCount" class="kpi-value text-blue">0</div>
-          <div class="kpi-subtext">New in NEW program</div>
+          <div class="kpi-subtext" id="kpiAddedSubtext">New in NEW program</div>
         </div>
         <div class="kpi-card kpi-red">
           <div class="kpi-label"><span>Removed Count</span><span class="trace-hint">Trace</span></div>
           <div id="kpiRemovedCount" class="kpi-value text-red">0</div>
-          <div class="kpi-subtext">Missing in NEW program</div>
+          <div class="kpi-subtext" id="kpiRemovedSubtext">Missing in NEW program</div>
         </div>
         <div class="kpi-card kpi-amber">
           <div class="kpi-label"><span>Limit Change</span><span class="trace-hint">Trace</span></div>
@@ -1912,12 +1918,12 @@ body.light-theme .multiselect-item:hover {
               <tr>
                 <th style="width: 50px;">#</th>
                 <th style="width: 100px;">Status</th>
-                <th>OLD Test Name</th>
-                <th>NEW Test Name</th>
-                <th style="width: 90px;">OLD Limits</th>
-                <th style="width: 90px;">NEW Limits</th>
-                <th style="width: 70px;">OLD Units</th>
-                <th style="width: 70px;">NEW Units</th>
+                <th id="itemColHeaderOldName">OLD Test Name</th>
+                <th id="itemColHeaderNewName">NEW Test Name</th>
+                <th style="width: 90px;" id="itemColHeaderOldLimits">OLD Limits</th>
+                <th style="width: 90px;" id="itemColHeaderNewLimits">NEW Limits</th>
+                <th style="width: 70px;" id="itemColHeaderOldUnits">OLD Units</th>
+                <th style="width: 70px;" id="itemColHeaderNewUnits">NEW Units</th>
               </tr>
             </thead>
             <tbody id="itemComparisonTbody"></tbody>
@@ -3282,7 +3288,10 @@ class CsvParserEngine {
       newProgram: 'N/A',
       oldStage: 'N/A',
       newStage: 'N/A',
-      timestamp: 'N/A'
+      timestamp: 'N/A',
+      leftLabel: 'OLD',
+      rightLabel: 'NEW',
+      labelSource: 'default'
     };
 
     if (!filename) return meta;
@@ -3342,6 +3351,18 @@ class CsvParserEngine {
   }
 
   /**
+   * Parse a "LEFT_vs_RIGHT" style comparison-type string (e.g. the Item Compare
+   * CSV's Column A, which is typically "OLD_vs_NEW" but may also be "NEW_vs_PROPOSE"
+   * or similar) into { leftLabel, rightLabel }. Returns null if it doesn't match.
+   */
+  static parseComparisonLabels(value) {
+    if (!value || typeof value !== 'string') return null;
+    const match = value.trim().match(/^([A-Za-z][A-Za-z0-9]*)_vs_([A-Za-z][A-Za-z0-9]*)$/i);
+    if (!match) return null;
+    return { leftLabel: match[1].toUpperCase(), rightLabel: match[2].toUpperCase() };
+  }
+
+  /**
    * Parse Item Compare CSV (flat tabular)
    */
   static parseItemCompare(csvText, filename = '') {
@@ -3369,6 +3390,16 @@ class CsvParserEngine {
       if (rows[0].NEW_Program) meta.newProgram = rows[0].NEW_Program;
       if (rows[0].OLD_Stage) meta.oldStage = rows[0].OLD_Stage;
       if (rows[0].NEW_Stage) meta.newStage = rows[0].NEW_Stage;
+
+      // Column A (e.g. "Comparison") typically holds a "LEFT_vs_RIGHT" tag per row
+      // such as "OLD_vs_NEW" or "NEW_vs_PROPOSE" — detect it so the UI can label
+      // this comparison correctly instead of always assuming OLD vs NEW.
+      const colALabels = this.parseComparisonLabels(rows[0][headers[0]]);
+      if (colALabels) {
+        meta.leftLabel = colALabels.leftLabel;
+        meta.rightLabel = colALabels.rightLabel;
+        meta.labelSource = 'detected';
+      }
     }
 
     return {
@@ -7392,11 +7423,16 @@ class SemiconductorExportManager {
       slide1.background = { color: THEME.BG };
 
       // Top Title Bar
+      const itemLabelMode = appState.itemLabelMode || 'AUTO';
+      const itemLabels = itemLabelMode === 'OLD_NEW' ? { left: 'OLD', right: 'NEW' }
+        : itemLabelMode === 'NEW_PROPOSE' ? { left: 'NEW', right: 'PROPOSE' }
+        : { left: item.meta?.leftLabel || 'OLD', right: item.meta?.rightLabel || 'NEW' };
+
       slide1.addText('SANITY CHECK COMPARISON SUMMARY', {
         x: 0.5, y: 0.2, w: 8.5, h: 0.35,
         fontSize: 16, bold: true, color: THEME.TEXT_PRIMARY, fontFace: 'Arial'
       });
-      slide1.addText('OLD vs NEW Program Item Comparison • Structural Integrity & Parameter Shift', {
+      slide1.addText(`${itemLabels.left} vs ${itemLabels.right} Program Item Comparison • Structural Integrity & Parameter Shift`, {
         x: 0.5, y: 0.52, w: 8.5, h: 0.25,
         fontSize: 9.5, color: THEME.CYAN, fontFace: 'Arial'
       });
@@ -7508,8 +7544,8 @@ class SemiconductorExportManager {
         `• Affected Domains: ${item.affectedCategoryCount}\n` +
         `• Largest Contributor: ${item.topCategoryName} (${item.topCategoryPercent}%)\n\n` +
         `DOMINANT MIGRATION PATTERN:\n` +
-        `  OLD: ${item.dominantMigration.oldName}\n` +
-        `  NEW: ${item.dominantMigration.newName}\n\n` +
+        `  ${itemLabels.left}: ${item.dominantMigration.oldName}\n` +
+        `  ${itemLabels.right}: ${item.dominantMigration.newName}\n\n` +
         `STRUCTURAL DELTA:\n` +
         `  • Added Records: ${item.addedCount}\n` +
         `  • Removed Records: ${item.removedCount}\n` +
@@ -7533,7 +7569,7 @@ class SemiconductorExportManager {
 
       slide1.addText(
         `✓ Match Rate: ${item.matchRate.toFixed(1)}% of total comparison items.\n\n` +
-        `✓ Program Revisions:\n  OLD: ${oldProg}\n  NEW: ${newProg}\n\n` +
+        `✓ Program Revisions:\n  ${itemLabels.left}: ${oldProg}\n  ${itemLabels.right}: ${newProg}\n\n` +
         `✓ Assessment Summary:\n  ${item.assessmentRationale}\n\n` +
         `✓ Engineering Recommendation:\n  ${item.overallAssessment === 'PASS' ? 'Proceed with release qualification.' : 'Investigate modified parameter limits and unmapped removed test items prior to signoff.'}`,
         {
@@ -8216,6 +8252,7 @@ class SemiconductorApp {
       activeTab: 'overview',
       theme: 'dark',
       itemFile: null,
+      itemLabelMode: 'AUTO', // 'AUTO' | 'OLD_NEW' | 'NEW_PROPOSE'
       dsaFile: null,
       binFile: null,
       tsrFile: null,
@@ -9118,12 +9155,53 @@ class SemiconductorApp {
   }
 
   /**
+   * Some Item Compare CSVs compare OLD vs NEW program revisions; others compare a
+   * NEW baseline against a PROPOSED revision. Column A of the CSV (e.g. "Comparison")
+   * usually tags which one it is (e.g. "OLD_vs_NEW", "NEW_vs_PROPOSE"), but the user
+   * can also override the label pair manually via the Comparison dropdown.
+   */
+  getItemLabels() {
+    const mode = this.state.itemLabelMode || 'AUTO';
+    if (mode === 'OLD_NEW') return { left: 'OLD', right: 'NEW' };
+    if (mode === 'NEW_PROPOSE') return { left: 'NEW', right: 'PROPOSE' };
+    const meta = this.state.itemFile?.meta;
+    return { left: meta?.leftLabel || 'OLD', right: meta?.rightLabel || 'NEW' };
+  }
+
+  setItemLabelMode(mode) {
+    this.state.itemLabelMode = mode;
+    this.updateItemUi();
+  }
+
+  /**
    * Update Item Compare Tab (sanity_ITEM COMPARSION.txt)
    */
   updateItemUi() {
     const item = this.state.itemAnalysis;
     const raw = this.state.itemFile?.rows || [];
     if (!item) return;
+
+    const labels = this.getItemLabels();
+    const modeSelect = document.getElementById('itemLabelModeSelect');
+    if (modeSelect) modeSelect.value = this.state.itemLabelMode || 'AUTO';
+
+    const kpiAddedSubtext = document.getElementById('kpiAddedSubtext');
+    if (kpiAddedSubtext) kpiAddedSubtext.textContent = `New in ${labels.right} program`;
+    const kpiRemovedSubtext = document.getElementById('kpiRemovedSubtext');
+    if (kpiRemovedSubtext) kpiRemovedSubtext.textContent = `Missing in ${labels.right} program`;
+
+    const colHeaders = {
+      itemColHeaderOldName: `${labels.left} Test Name`,
+      itemColHeaderNewName: `${labels.right} Test Name`,
+      itemColHeaderOldLimits: `${labels.left} Limits`,
+      itemColHeaderNewLimits: `${labels.right} Limits`,
+      itemColHeaderOldUnits: `${labels.left} Units`,
+      itemColHeaderNewUnits: `${labels.right} Units`
+    };
+    Object.entries(colHeaders).forEach(([id, text]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    });
 
     // Dedicated Item Sanity Source File Info Bar
     const itemFileName = document.getElementById('itemLoadedFileName');
@@ -9152,12 +9230,12 @@ class SemiconductorApp {
 
     this.setKpi('kpiAddedCount', item.addedCount, () => {
       const filtered = raw.filter(r => (r.Status || '').toLowerCase().includes('add'));
-      window.traceManager.trace('Added Test Items', 'New items added in NEW program', `<b>Formula:</b> Added = ${item.addedCount} / Total ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
+      window.traceManager.trace('Added Test Items', `New items added in ${labels.right} program`, `<b>Formula:</b> Added = ${item.addedCount} / Total ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
     this.setKpi('kpiRemovedCount', item.removedCount, () => {
       const filtered = raw.filter(r => (r.Status || '').toLowerCase().includes('remove'));
-      window.traceManager.trace('Removed Test Items', 'Items deleted or missing in NEW program', `<b>Formula:</b> Removed = ${item.removedCount} / Total ${item.totalRecords} = <b>${item.removedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
+      window.traceManager.trace('Removed Test Items', `Items deleted or missing in ${labels.right} program`, `<b>Formula:</b> Removed = ${item.removedCount} / Total ${item.totalRecords} = <b>${item.removedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
     this.setKpi('kpiLimitChange', item.limitChangeCount, () => {
@@ -9203,8 +9281,8 @@ class SemiconductorApp {
           </div>
           <div class="mt-3 p-3 bg-card-subtle rounded border border-navy-700">
             <div class="text-xs text-cyan uppercase font-bold tracking-wider mb-1">Dominant Migration Pattern:</div>
-            <div class="text-xs font-mono">OLD: <span class="text-red font-bold">${item.dominantMigration.oldName}</span></div>
-            <div class="text-xs font-mono">NEW: <span class="text-green font-bold">${item.dominantMigration.newName}</span></div>
+            <div class="text-xs font-mono">${labels.left}: <span class="text-red font-bold">${item.dominantMigration.oldName}</span></div>
+            <div class="text-xs font-mono">${labels.right}: <span class="text-green font-bold">${item.dominantMigration.newName}</span></div>
           </div>
         </div>
       `;
@@ -9456,6 +9534,7 @@ class SemiconductorApp {
     const raw = this.state.itemFile?.rows || [];
     const item = this.state.itemAnalysis;
     if (!item) return;
+    const labels = this.getItemLabels();
 
     if (traceType === 'item_match') {
       const f = raw.filter(r => (r.Status || '').toLowerCase() === 'match');
@@ -9468,7 +9547,7 @@ class SemiconductorApp {
       window.traceManager.trace('Scorecard: Name Changes', 'Renamed parameter items', `<b>Formula:</b> Name Change Rate = ${item.nameChangeCount} / ${item.totalRecords} = <b>${item.nameChangeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_added') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('add'));
-      window.traceManager.trace('Scorecard: Added Items', 'Newly created tests in NEW program', `<b>Formula:</b> Added Rate = ${item.addedCount} / ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
+      window.traceManager.trace('Scorecard: Added Items', `Newly created tests in ${labels.right} program`, `<b>Formula:</b> Added Rate = ${item.addedCount} / ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_removed') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('remove'));
       window.traceManager.trace('Scorecard: Removed Items', 'Deprecated or removed test parameters', `<b>Formula:</b> Removed Rate = ${item.removedCount} / ${item.totalRecords} = <b>${item.removedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);

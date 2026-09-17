@@ -67,11 +67,16 @@ class SemiconductorExportManager {
       slide1.background = { color: THEME.BG };
 
       // Top Title Bar
+      const itemLabelMode = appState.itemLabelMode || 'AUTO';
+      const itemLabels = itemLabelMode === 'OLD_NEW' ? { left: 'OLD', right: 'NEW' }
+        : itemLabelMode === 'NEW_PROPOSE' ? { left: 'NEW', right: 'PROPOSE' }
+        : { left: item.meta?.leftLabel || 'OLD', right: item.meta?.rightLabel || 'NEW' };
+
       slide1.addText('SANITY CHECK COMPARISON SUMMARY', {
         x: 0.5, y: 0.2, w: 8.5, h: 0.35,
         fontSize: 16, bold: true, color: THEME.TEXT_PRIMARY, fontFace: 'Arial'
       });
-      slide1.addText('OLD vs NEW Program Item Comparison • Structural Integrity & Parameter Shift', {
+      slide1.addText(`${itemLabels.left} vs ${itemLabels.right} Program Item Comparison • Structural Integrity & Parameter Shift`, {
         x: 0.5, y: 0.52, w: 8.5, h: 0.25,
         fontSize: 9.5, color: THEME.CYAN, fontFace: 'Arial'
       });
@@ -183,8 +188,8 @@ class SemiconductorExportManager {
         `• Affected Domains: ${item.affectedCategoryCount}\n` +
         `• Largest Contributor: ${item.topCategoryName} (${item.topCategoryPercent}%)\n\n` +
         `DOMINANT MIGRATION PATTERN:\n` +
-        `  OLD: ${item.dominantMigration.oldName}\n` +
-        `  NEW: ${item.dominantMigration.newName}\n\n` +
+        `  ${itemLabels.left}: ${item.dominantMigration.oldName}\n` +
+        `  ${itemLabels.right}: ${item.dominantMigration.newName}\n\n` +
         `STRUCTURAL DELTA:\n` +
         `  • Added Records: ${item.addedCount}\n` +
         `  • Removed Records: ${item.removedCount}\n` +
@@ -208,7 +213,7 @@ class SemiconductorExportManager {
 
       slide1.addText(
         `✓ Match Rate: ${item.matchRate.toFixed(1)}% of total comparison items.\n\n` +
-        `✓ Program Revisions:\n  OLD: ${oldProg}\n  NEW: ${newProg}\n\n` +
+        `✓ Program Revisions:\n  ${itemLabels.left}: ${oldProg}\n  ${itemLabels.right}: ${newProg}\n\n` +
         `✓ Assessment Summary:\n  ${item.assessmentRationale}\n\n` +
         `✓ Engineering Recommendation:\n  ${item.overallAssessment === 'PASS' ? 'Proceed with release qualification.' : 'Investigate modified parameter limits and unmapped removed test items prior to signoff.'}`,
         {

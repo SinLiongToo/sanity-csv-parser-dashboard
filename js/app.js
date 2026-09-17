@@ -19,6 +19,7 @@ class SemiconductorApp {
       activeTab: 'overview',
       theme: 'dark',
       itemFile: null,
+      itemLabelMode: 'AUTO', // 'AUTO' | 'OLD_NEW' | 'NEW_PROPOSE'
       dsaFile: null,
       binFile: null,
       tsrFile: null,
@@ -921,12 +922,53 @@ class SemiconductorApp {
   }
 
   /**
+   * Some Item Compare CSVs compare OLD vs NEW program revisions; others compare a
+   * NEW baseline against a PROPOSED revision. Column A of the CSV (e.g. "Comparison")
+   * usually tags which one it is (e.g. "OLD_vs_NEW", "NEW_vs_PROPOSE"), but the user
+   * can also override the label pair manually via the Comparison dropdown.
+   */
+  getItemLabels() {
+    const mode = this.state.itemLabelMode || 'AUTO';
+    if (mode === 'OLD_NEW') return { left: 'OLD', right: 'NEW' };
+    if (mode === 'NEW_PROPOSE') return { left: 'NEW', right: 'PROPOSE' };
+    const meta = this.state.itemFile?.meta;
+    return { left: meta?.leftLabel || 'OLD', right: meta?.rightLabel || 'NEW' };
+  }
+
+  setItemLabelMode(mode) {
+    this.state.itemLabelMode = mode;
+    this.updateItemUi();
+  }
+
+  /**
    * Update Item Compare Tab (sanity_ITEM COMPARSION.txt)
    */
   updateItemUi() {
     const item = this.state.itemAnalysis;
     const raw = this.state.itemFile?.rows || [];
     if (!item) return;
+
+    const labels = this.getItemLabels();
+    const modeSelect = document.getElementById('itemLabelModeSelect');
+    if (modeSelect) modeSelect.value = this.state.itemLabelMode || 'AUTO';
+
+    const kpiAddedSubtext = document.getElementById('kpiAddedSubtext');
+    if (kpiAddedSubtext) kpiAddedSubtext.textContent = `New in ${labels.right} program`;
+    const kpiRemovedSubtext = document.getElementById('kpiRemovedSubtext');
+    if (kpiRemovedSubtext) kpiRemovedSubtext.textContent = `Missing in ${labels.right} program`;
+
+    const colHeaders = {
+      itemColHeaderOldName: `${labels.left} Test Name`,
+      itemColHeaderNewName: `${labels.right} Test Name`,
+      itemColHeaderOldLimits: `${labels.left} Limits`,
+      itemColHeaderNewLimits: `${labels.right} Limits`,
+      itemColHeaderOldUnits: `${labels.left} Units`,
+      itemColHeaderNewUnits: `${labels.right} Units`
+    };
+    Object.entries(colHeaders).forEach(([id, text]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    });
 
     // Dedicated Item Sanity Source File Info Bar
     const itemFileName = document.getElementById('itemLoadedFileName');
@@ -955,12 +997,12 @@ class SemiconductorApp {
 
     this.setKpi('kpiAddedCount', item.addedCount, () => {
       const filtered = raw.filter(r => (r.Status || '').toLowerCase().includes('add'));
-      window.traceManager.trace('Added Test Items', 'New items added in NEW program', `<b>Formula:</b> Added = ${item.addedCount} / Total ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
+      window.traceManager.trace('Added Test Items', `New items added in ${labels.right} program`, `<b>Formula:</b> Added = ${item.addedCount} / Total ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
     this.setKpi('kpiRemovedCount', item.removedCount, () => {
       const filtered = raw.filter(r => (r.Status || '').toLowerCase().includes('remove'));
-      window.traceManager.trace('Removed Test Items', 'Items deleted or missing in NEW program', `<b>Formula:</b> Removed = ${item.removedCount} / Total ${item.totalRecords} = <b>${item.removedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
+      window.traceManager.trace('Removed Test Items', `Items deleted or missing in ${labels.right} program`, `<b>Formula:</b> Removed = ${item.removedCount} / Total ${item.totalRecords} = <b>${item.removedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
     this.setKpi('kpiLimitChange', item.limitChangeCount, () => {
@@ -1006,8 +1048,8 @@ class SemiconductorApp {
           </div>
           <div class="mt-3 p-3 bg-card-subtle rounded border border-navy-700">
             <div class="text-xs text-cyan uppercase font-bold tracking-wider mb-1">Dominant Migration Pattern:</div>
-            <div class="text-xs font-mono">OLD: <span class="text-red font-bold">${item.dominantMigration.oldName}</span></div>
-            <div class="text-xs font-mono">NEW: <span class="text-green font-bold">${item.dominantMigration.newName}</span></div>
+            <div class="text-xs font-mono">${labels.left}: <span class="text-red font-bold">${item.dominantMigration.oldName}</span></div>
+            <div class="text-xs font-mono">${labels.right}: <span class="text-green font-bold">${item.dominantMigration.newName}</span></div>
           </div>
         </div>
       `;
@@ -1259,6 +1301,7 @@ class SemiconductorApp {
     const raw = this.state.itemFile?.rows || [];
     const item = this.state.itemAnalysis;
     if (!item) return;
+    const labels = this.getItemLabels();
 
     if (traceType === 'item_match') {
       const f = raw.filter(r => (r.Status || '').toLowerCase() === 'match');
@@ -1271,7 +1314,7 @@ class SemiconductorApp {
       window.traceManager.trace('Scorecard: Name Changes', 'Renamed parameter items', `<b>Formula:</b> Name Change Rate = ${item.nameChangeCount} / ${item.totalRecords} = <b>${item.nameChangeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_added') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('add'));
-      window.traceManager.trace('Scorecard: Added Items', 'Newly created tests in NEW program', `<b>Formula:</b> Added Rate = ${item.addedCount} / ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
+      window.traceManager.trace('Scorecard: Added Items', `Newly created tests in ${labels.right} program`, `<b>Formula:</b> Added Rate = ${item.addedCount} / ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_removed') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('remove'));
       window.traceManager.trace('Scorecard: Removed Items', 'Deprecated or removed test parameters', `<b>Formula:</b> Removed Rate = ${item.removedCount} / ${item.totalRecords} = <b>${item.removedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);

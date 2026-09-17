@@ -181,7 +181,10 @@ class CsvParserEngine {
       newProgram: 'N/A',
       oldStage: 'N/A',
       newStage: 'N/A',
-      timestamp: 'N/A'
+      timestamp: 'N/A',
+      leftLabel: 'OLD',
+      rightLabel: 'NEW',
+      labelSource: 'default'
     };
 
     if (!filename) return meta;
@@ -241,6 +244,18 @@ class CsvParserEngine {
   }
 
   /**
+   * Parse a "LEFT_vs_RIGHT" style comparison-type string (e.g. the Item Compare
+   * CSV's Column A, which is typically "OLD_vs_NEW" but may also be "NEW_vs_PROPOSE"
+   * or similar) into { leftLabel, rightLabel }. Returns null if it doesn't match.
+   */
+  static parseComparisonLabels(value) {
+    if (!value || typeof value !== 'string') return null;
+    const match = value.trim().match(/^([A-Za-z][A-Za-z0-9]*)_vs_([A-Za-z][A-Za-z0-9]*)$/i);
+    if (!match) return null;
+    return { leftLabel: match[1].toUpperCase(), rightLabel: match[2].toUpperCase() };
+  }
+
+  /**
    * Parse Item Compare CSV (flat tabular)
    */
   static parseItemCompare(csvText, filename = '') {
@@ -268,6 +283,16 @@ class CsvParserEngine {
       if (rows[0].NEW_Program) meta.newProgram = rows[0].NEW_Program;
       if (rows[0].OLD_Stage) meta.oldStage = rows[0].OLD_Stage;
       if (rows[0].NEW_Stage) meta.newStage = rows[0].NEW_Stage;
+
+      // Column A (e.g. "Comparison") typically holds a "LEFT_vs_RIGHT" tag per row
+      // such as "OLD_vs_NEW" or "NEW_vs_PROPOSE" — detect it so the UI can label
+      // this comparison correctly instead of always assuming OLD vs NEW.
+      const colALabels = this.parseComparisonLabels(rows[0][headers[0]]);
+      if (colALabels) {
+        meta.leftLabel = colALabels.leftLabel;
+        meta.rightLabel = colALabels.rightLabel;
+        meta.labelSource = 'detected';
+      }
     }
 
     return {

@@ -325,6 +325,12 @@
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-400 font-mono" id="itemLoadedTimestamp">Updated: --</span>
+          <span class="text-xs font-bold text-gray-300 ml-2">Comparison:</span>
+          <select id="itemLabelModeSelect" class="bg-navy-900 border border-navy-700 text-cyan text-xs rounded px-2 py-1 outline-none" onchange="window.app.setItemLabelMode(this.value)" title="Some Item Compare CSVs compare OLD vs NEW; others compare NEW vs a PROPOSED revision. Switch how this tab labels the two sides.">
+            <option value="AUTO">Auto-detect from CSV</option>
+            <option value="OLD_NEW">OLD vs NEW</option>
+            <option value="NEW_PROPOSE">NEW vs PROPOSE</option>
+          </select>
           <button class="btn btn-subtle text-xs py-0.5 px-2 text-cyan" onclick="document.getElementById('csvFileInput').click()" title="Load another Item Compare CSV file">📂 Change File</button>
           <span id="itemLoadedFileSize" class="text-xs font-mono text-cyan bg-navy-900 px-2 py-0.5 rounded border border-navy-700 font-bold" title="Item Compare CSV File Size"></span>
         </div>
@@ -350,12 +356,12 @@
         <div class="kpi-card kpi-cyan">
           <div class="kpi-label"><span>Added Count</span><span class="trace-hint">Trace</span></div>
           <div id="kpiAddedCount" class="kpi-value text-blue">0</div>
-          <div class="kpi-subtext">New in NEW program</div>
+          <div class="kpi-subtext" id="kpiAddedSubtext">New in NEW program</div>
         </div>
         <div class="kpi-card kpi-red">
           <div class="kpi-label"><span>Removed Count</span><span class="trace-hint">Trace</span></div>
           <div id="kpiRemovedCount" class="kpi-value text-red">0</div>
-          <div class="kpi-subtext">Missing in NEW program</div>
+          <div class="kpi-subtext" id="kpiRemovedSubtext">Missing in NEW program</div>
         </div>
         <div class="kpi-card kpi-amber">
           <div class="kpi-label"><span>Limit Change</span><span class="trace-hint">Trace</span></div>
@@ -441,12 +447,12 @@
               <tr>
                 <th style="width: 50px;">#</th>
                 <th style="width: 100px;">Status</th>
-                <th>OLD Test Name</th>
-                <th>NEW Test Name</th>
-                <th style="width: 90px;">OLD Limits</th>
-                <th style="width: 90px;">NEW Limits</th>
-                <th style="width: 70px;">OLD Units</th>
-                <th style="width: 70px;">NEW Units</th>
+                <th id="itemColHeaderOldName">OLD Test Name</th>
+                <th id="itemColHeaderNewName">NEW Test Name</th>
+                <th style="width: 90px;" id="itemColHeaderOldLimits">OLD Limits</th>
+                <th style="width: 90px;" id="itemColHeaderNewLimits">NEW Limits</th>
+                <th style="width: 70px;" id="itemColHeaderOldUnits">OLD Units</th>
+                <th style="width: 70px;" id="itemColHeaderNewUnits">NEW Units</th>
               </tr>
             </thead>
             <tbody id="itemComparisonTbody"></tbody>
