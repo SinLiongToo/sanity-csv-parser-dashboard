@@ -3762,6 +3762,7 @@ class SemiconductorAnalytics {
         otherChangeCount: 0,
         naCount: 0,
         naRecords: [],
+        oldTotal: 0,
         totalChanged: 0,
         changeRate: 0,
         nameChangeRate: 0,
@@ -3848,9 +3849,15 @@ class SemiconductorAnalytics {
       }
     });
 
-    const totalChanged = totalRecords - matchCount;
+    // Change Rate is measured against the OLD baseline population, not every row in the
+    // file: newly Added items didn't exist in OLD, so they shouldn't dilute the
+    // denominator (or count as an OLD item "changing"). oldTotal = items that existed
+    // in OLD (Match, Name/Limit/Unit/Number Change, Removed, N/A) = totalRecords minus
+    // the ones that only exist because they were Added.
+    const oldTotal = totalRecords - addedCount;
+    const totalChanged = oldTotal - matchCount;
     const matchRate = totalRecords > 0 ? (matchCount / totalRecords) * 100 : 0;
-    const changeRate = totalRecords > 0 ? (totalChanged / totalRecords) * 100 : 0;
+    const changeRate = oldTotal > 0 ? (totalChanged / oldTotal) * 100 : 0;
     const nameChangeRate = totalRecords > 0 ? (nameChangeCount / totalRecords) * 100 : 0;
     const addedRate = totalRecords > 0 ? (addedCount / totalRecords) * 100 : 0;
     const removedRate = totalRecords > 0 ? (removedCount / totalRecords) * 100 : 0;
@@ -4031,6 +4038,7 @@ class SemiconductorAnalytics {
       otherChangeCount,
       naCount,
       naRecords,
+      oldTotal,
       totalChanged,
       matchRate,
       changeRate,
@@ -9281,8 +9289,11 @@ class SemiconductorApp {
     });
 
     this.setKpi('kpiOverallChangeRate', `${item.changeRate.toFixed(1)}%`, () => {
-      const filtered = raw.filter(r => (r.Status || '').toLowerCase() !== 'match');
-      window.traceManager.trace('Overall Changed Items', 'All non-matching items', `<b>Formula:</b> Changed Count = ${item.totalChanged} / Total ${item.totalRecords} = <b>${item.changeRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
+      const filtered = raw.filter(r => {
+        const s = (r.Status || '').toLowerCase();
+        return s !== 'match' && !s.includes('add');
+      });
+      window.traceManager.trace('Overall Changed Items', `All items that existed in ${labels.left} and did not match ${labels.right} (excludes newly Added items)`, `<b>Formula:</b> Changed Count = ${item.totalChanged} / ${labels.left} Total ${item.oldTotal} (${item.totalRecords} total − ${item.addedCount} added) = <b>${item.changeRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
     // Scorecard Table
@@ -9600,8 +9611,11 @@ class SemiconductorApp {
       const f = raw.filter(r => (r.Status || '').toLowerCase() === 'match');
       window.traceManager.trace('Scorecard: Match Test Items', 'Items with identical configurations', `<b>Formula:</b> Match Rate = ${item.matchCount} / ${item.totalRecords} = <b>${item.matchRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_changed') {
-      const f = raw.filter(r => (r.Status || '').toLowerCase() !== 'match');
-      window.traceManager.trace('Scorecard: Changed Test Items', 'Items with any variation', `<b>Formula:</b> Overall Change Rate = ${item.totalChanged} / ${item.totalRecords} = <b>${item.changeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
+      const f = raw.filter(r => {
+        const s = (r.Status || '').toLowerCase();
+        return s !== 'match' && !s.includes('add');
+      });
+      window.traceManager.trace('Scorecard: Changed Test Items', `Items that existed in ${labels.left} and did not match ${labels.right} (excludes newly Added items)`, `<b>Formula:</b> Overall Change Rate = ${item.totalChanged} / ${labels.left} Total ${item.oldTotal} = <b>${item.changeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_namechange') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('name'));
       window.traceManager.trace('Scorecard: Name Changes', 'Renamed parameter items', `<b>Formula:</b> Name Change Rate = ${item.nameChangeCount} / ${item.totalRecords} = <b>${item.nameChangeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);

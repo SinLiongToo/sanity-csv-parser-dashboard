@@ -1012,8 +1012,11 @@ class SemiconductorApp {
     });
 
     this.setKpi('kpiOverallChangeRate', `${item.changeRate.toFixed(1)}%`, () => {
-      const filtered = raw.filter(r => (r.Status || '').toLowerCase() !== 'match');
-      window.traceManager.trace('Overall Changed Items', 'All non-matching items', `<b>Formula:</b> Changed Count = ${item.totalChanged} / Total ${item.totalRecords} = <b>${item.changeRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
+      const filtered = raw.filter(r => {
+        const s = (r.Status || '').toLowerCase();
+        return s !== 'match' && !s.includes('add');
+      });
+      window.traceManager.trace('Overall Changed Items', `All items that existed in ${labels.left} and did not match ${labels.right} (excludes newly Added items)`, `<b>Formula:</b> Changed Count = ${item.totalChanged} / ${labels.left} Total ${item.oldTotal} (${item.totalRecords} total − ${item.addedCount} added) = <b>${item.changeRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
     // Scorecard Table
@@ -1331,8 +1334,11 @@ class SemiconductorApp {
       const f = raw.filter(r => (r.Status || '').toLowerCase() === 'match');
       window.traceManager.trace('Scorecard: Match Test Items', 'Items with identical configurations', `<b>Formula:</b> Match Rate = ${item.matchCount} / ${item.totalRecords} = <b>${item.matchRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_changed') {
-      const f = raw.filter(r => (r.Status || '').toLowerCase() !== 'match');
-      window.traceManager.trace('Scorecard: Changed Test Items', 'Items with any variation', `<b>Formula:</b> Overall Change Rate = ${item.totalChanged} / ${item.totalRecords} = <b>${item.changeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
+      const f = raw.filter(r => {
+        const s = (r.Status || '').toLowerCase();
+        return s !== 'match' && !s.includes('add');
+      });
+      window.traceManager.trace('Scorecard: Changed Test Items', `Items that existed in ${labels.left} and did not match ${labels.right} (excludes newly Added items)`, `<b>Formula:</b> Overall Change Rate = ${item.totalChanged} / ${labels.left} Total ${item.oldTotal} = <b>${item.changeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_namechange') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('name'));
       window.traceManager.trace('Scorecard: Name Changes', 'Renamed parameter items', `<b>Formula:</b> Name Change Rate = ${item.nameChangeCount} / ${item.totalRecords} = <b>${item.nameChangeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);

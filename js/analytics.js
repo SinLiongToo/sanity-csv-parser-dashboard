@@ -110,6 +110,7 @@ class SemiconductorAnalytics {
         otherChangeCount: 0,
         naCount: 0,
         naRecords: [],
+        oldTotal: 0,
         totalChanged: 0,
         changeRate: 0,
         nameChangeRate: 0,
@@ -196,9 +197,15 @@ class SemiconductorAnalytics {
       }
     });
 
-    const totalChanged = totalRecords - matchCount;
+    // Change Rate is measured against the OLD baseline population, not every row in the
+    // file: newly Added items didn't exist in OLD, so they shouldn't dilute the
+    // denominator (or count as an OLD item "changing"). oldTotal = items that existed
+    // in OLD (Match, Name/Limit/Unit/Number Change, Removed, N/A) = totalRecords minus
+    // the ones that only exist because they were Added.
+    const oldTotal = totalRecords - addedCount;
+    const totalChanged = oldTotal - matchCount;
     const matchRate = totalRecords > 0 ? (matchCount / totalRecords) * 100 : 0;
-    const changeRate = totalRecords > 0 ? (totalChanged / totalRecords) * 100 : 0;
+    const changeRate = oldTotal > 0 ? (totalChanged / oldTotal) * 100 : 0;
     const nameChangeRate = totalRecords > 0 ? (nameChangeCount / totalRecords) * 100 : 0;
     const addedRate = totalRecords > 0 ? (addedCount / totalRecords) * 100 : 0;
     const removedRate = totalRecords > 0 ? (removedCount / totalRecords) * 100 : 0;
@@ -379,6 +386,7 @@ class SemiconductorAnalytics {
       otherChangeCount,
       naCount,
       naRecords,
+      oldTotal,
       totalChanged,
       matchRate,
       changeRate,
