@@ -8607,7 +8607,8 @@ class SemiconductorApp {
         targetTab = 'tsr';
       } else if (parsed.type === 'itemcompare') {
         this.state.itemFile = parsed;
-        this.state.itemAnalysis = SemiconductorAnalytics.analyzeItemCompare(parsed, this.state.testIgnoreRules);
+        this.state.itemLabelMode = 'AUTO';
+        this.recomputeItemAnalysis();
         this.updateItemUi();
         targetTab = 'item';
       } else if (parsed.type === 'dsacompare') {
@@ -9212,8 +9213,34 @@ class SemiconductorApp {
     return { left: meta?.leftLabel || 'OLD', right: meta?.rightLabel || 'NEW' };
   }
 
+  /**
+   * A single Item Compare CSV can mix OLD_vs_NEW and PROPOSED_vs_NEW rows (Column A
+   * is per-row). "Auto-detect" shows every row combined, exactly as loaded. Explicitly
+   * choosing OLD vs NEW or NEW vs PROPOSE actually filters down to just that row
+   * population — Total Records and every other stat then reflect only that subset,
+   * not the whole file.
+   */
+  getItemFilteredRows() {
+    const rows = this.state.itemFile?.rows || [];
+    const mode = this.state.itemLabelMode || 'AUTO';
+    if (mode === 'OLD_NEW') {
+      return rows.filter(r => !String(r.Comparison || '').toUpperCase().includes('PROPOSED'));
+    }
+    if (mode === 'NEW_PROPOSE') {
+      return rows.filter(r => String(r.Comparison || '').toUpperCase().includes('PROPOSED'));
+    }
+    return rows;
+  }
+
+  recomputeItemAnalysis() {
+    if (!this.state.itemFile) return;
+    const filteredFile = { ...this.state.itemFile, rows: this.getItemFilteredRows() };
+    this.state.itemAnalysis = SemiconductorAnalytics.analyzeItemCompare(filteredFile, this.state.testIgnoreRules);
+  }
+
   setItemLabelMode(mode) {
     this.state.itemLabelMode = mode;
+    this.recomputeItemAnalysis();
     this.updateItemUi();
   }
 
@@ -9222,7 +9249,7 @@ class SemiconductorApp {
    */
   updateItemUi() {
     const item = this.state.itemAnalysis;
-    const raw = this.state.itemFile?.rows || [];
+    const raw = this.getItemFilteredRows();
     if (!item) return;
 
     const labels = this.getItemLabels();
@@ -9404,7 +9431,7 @@ class SemiconductorApp {
    * Render Detailed Item Comparison Matrix Table
    */
   renderItemComparisonTable() {
-    const raw = this.state.itemFile?.rows || [];
+    const raw = this.getItemFilteredRows();
     const tbody = document.getElementById('itemComparisonTbody');
     const countBadge = document.getElementById('itemTableCountBadge');
     if (!tbody) return;
@@ -9572,7 +9599,7 @@ class SemiconductorApp {
   }
 
   traceItemRecord(index) {
-    const raw = this.state.itemFile?.rows || [];
+    const raw = this.getItemFilteredRows();
     const r = raw[index];
     if (!r) return;
     const testName = r.Test_Name || `Item #${index + 1}`;
@@ -9602,7 +9629,7 @@ class SemiconductorApp {
   }
 
   traceScorecardRow(traceType) {
-    const raw = this.state.itemFile?.rows || [];
+    const raw = this.getItemFilteredRows();
     const item = this.state.itemAnalysis;
     if (!item) return;
     const labels = this.getItemLabels();
@@ -12671,7 +12698,7 @@ class SemiconductorApp {
         }
         if (this.state.itemFile) {
           try {
-            this.state.itemAnalysis = SemiconductorAnalytics.analyzeItemCompare(this.state.itemFile, this.state.testIgnoreRules);
+            this.recomputeItemAnalysis();
           } catch (e) {
             console.error('Error re-analyzing Item dataset with ignore rules:', e);
           }
