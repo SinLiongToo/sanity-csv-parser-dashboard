@@ -2,6 +2,8 @@
  * Semiconductor Sanity CSV Parser - Main Coordinator Application
  */
 
+window.APP_VERSION = 'v1.6.0';
+
 window.escapeHtml = function(s) {
   return String(s === undefined || s === null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -174,7 +176,7 @@ class SemiconductorApp {
       // 2. Main Title Subtext
       const brandSub = document.querySelector('.brand-title p') || document.getElementById('headerSubTitle');
       if (brandSub) {
-        brandSub.textContent = `DATA ANALYSIS EXECUTIVE DASHBOARD • ATE VALIDATION PLATFORM @ Masa Tu`;
+        brandSub.textContent = `DATA ANALYSIS EXECUTIVE DASHBOARD • ATE VALIDATION PLATFORM @ Masa Tu ${window.APP_VERSION || ''}`;
       }
 
       // 3. Overview Snapshot Timestamp

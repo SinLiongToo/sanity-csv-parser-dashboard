@@ -131,6 +131,14 @@ SANITY_CSV_PARSER/
 
 ## 📝 變更記錄 (Change Log)
 
+- **v1.6.0 (2026-09-18)**
+  - 🆕 **Item Sanity Check 支援 NEW vs PROPOSE 比對類型（不再只有 OLD vs NEW）**：
+    - Column A（`Comparison`）逐列標示 `OLD_vs_NEW` 或 `PROPOSED_vs_NEW`，同一份檔案可混合兩種列。新增「Comparison」下拉選單（Auto-detect / OLD vs NEW / NEW vs PROPOSE），可自動偵測或手動切換。
+    - 選定模式後**真正篩選資料**：Total Records、Match/Added/Removed/Limit Change 等所有統計、明細表、Scorecard 都只根據該模式對應的列重新計算，而不是整份檔案的全部列。
+    - `PROPOSED_vs_NEW` 的列改讀 `PROPOSED_Stage/Program/Test_Num/LSL/USL/Units` 欄位（而非 `OLD_*`）來顯示 Limits/Units，`NEW_*` 維持為比對錨點。
+  - 🐞 **修復 PROPOSED_vs_NEW 資料不一致時誤判為 Added 的問題**：Status 寫 "Added" 但 `PROPOSED_Test_Num` 是空的視為資料矛盾，改標記為 **N/A** 並獨立統計，不計入 Added Count。
+  - 🐞 **修復 Overall Change Rate 分母錯誤的問題**：原本用「總筆數」當分母，導致新增（Added）的測項稀釋或扭曲變化率；改為以「OLD 原有測項數」（總筆數 − Added 數）為分母重新計算，分子分母都排除 Added 項目，避免變化率超過 100%。
+  - 🏷️ 標題列副標題新增版本號（目前 v1.6.0）。
 - **v1.5.0 (2026-09-17)**
   - 🛡️ **修復 Repeatability 分頁使用篩選（Filter）時瀏覽器凍結/當機的根本問題**：
     - **根因**：`Raw Data Explorer`（🔬 Trace Explorer）預設資料集即為 Repeatability CSV，其表格渲染函式 `renderExplorerTable()` 過去沒有任何筆數上限，會把整份資料集（可達 5 萬筆以上）一次性塞進 DOM；即時搜尋框每打一個字也會重新觸發一次無上限渲染，篩選/搜尋動作越多，畫面卡住時間越長，最終被瀏覽器判定為沒有回應。實測 5.4 萬筆資料上傳後單這一步就佔用 8.75 秒（總計 12.7 秒）。
