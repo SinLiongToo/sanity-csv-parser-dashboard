@@ -996,7 +996,8 @@ class SemiconductorApp {
     });
 
     this.setKpi('kpiAddedCount', item.addedCount, () => {
-      const filtered = raw.filter(r => (r.Status || '').toLowerCase().includes('add'));
+      const naSet = new Set(item.naRecords || []);
+      const filtered = raw.filter(r => (r.Status || '').toLowerCase().includes('add') && !naSet.has(r));
       window.traceManager.trace('Added Test Items', `New items added in ${labels.right} program`, `<b>Formula:</b> Added = ${item.addedCount} / Total ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, filtered, null, item.meta.rawName);
     });
 
@@ -1143,7 +1144,7 @@ class SemiconductorApp {
 
     // Parse items into clean structure
     const items = raw.map((r, idx) => {
-      const status = String(r.Status || 'UNKNOWN').trim();
+      let status = String(r.Status || 'UNKNOWN').trim();
       const testName = String(r.Test_Name || '').trim();
       const desc = String(r.Description || '').trim();
 
@@ -1155,16 +1156,39 @@ class SemiconductorApp {
         newName = parts[1];
       }
 
-      const oldLimits = (r.OLD_LSL !== undefined && r.OLD_LSL !== '' || r.OLD_USL !== undefined && r.OLD_USL !== '') ? `[${r.OLD_LSL ?? ''}, ${r.OLD_USL ?? ''}]` : '-';
+      // Column A ("Comparison") is per-row and can mix OLD_vs_NEW and PROPOSED_vs_NEW
+      // rows within the same file. NEW_* is always the anchor (right side); the "left"
+      // side reads from PROPOSED_* columns when this row is a proposed-revision
+      // comparison, otherwise from OLD_* as before.
+      const isProposedRow = String(r.Comparison || '').toUpperCase().includes('PROPOSED');
+      const leftPrefix = isProposedRow ? 'PROPOSED' : 'OLD';
+      const leftLsl = r[`${leftPrefix}_LSL`];
+      const leftUsl = r[`${leftPrefix}_USL`];
+      const leftUnitsVal = r[`${leftPrefix}_Units`];
+      const proposedTestNum = String(r.PROPOSED_Test_Num || '').trim();
+
+      const oldLimits = (leftLsl !== undefined && leftLsl !== '' || leftUsl !== undefined && leftUsl !== '') ? `[${leftLsl ?? ''}, ${leftUsl ?? ''}]` : '-';
       const newLimits = (r.NEW_LSL !== undefined && r.NEW_LSL !== '' || r.NEW_USL !== undefined && r.NEW_USL !== '') ? `[${r.NEW_LSL ?? ''}, ${r.NEW_USL ?? ''}]` : '-';
-      const oldUnits = r.OLD_Units || '-';
+      const oldUnits = leftUnitsVal || '-';
       const newUnits = r.NEW_Units || '-';
 
-      const lowStatus = status.toLowerCase();
+      let lowStatus = status.toLowerCase();
       let statusKey = 'MATCH';
       let pillClass = 'pill-green';
 
-      if (lowStatus.includes('name')) {
+      // Data-quality guard: a PROPOSED_vs_NEW row claiming "Added" only makes sense if
+      // PROPOSED_Test_Num is actually populated (the item exists in the proposal). If
+      // PROPOSED_Test_Num is blank while Status says Added, the two disagree — treat it
+      // as N/A rather than trusting the mismatched "Added" label.
+      if (isProposedRow && lowStatus.includes('add') && !proposedTestNum) {
+        status = 'N/A';
+        lowStatus = 'n/a';
+      }
+
+      if (lowStatus === 'n/a' || lowStatus === 'na') {
+        statusKey = 'NA';
+        pillClass = 'pill-amber';
+      } else if (lowStatus.includes('name')) {
         statusKey = 'NAME_CHANGE';
         pillClass = 'pill-yellow';
       } else if (lowStatus.includes('add')) {
@@ -1313,7 +1337,8 @@ class SemiconductorApp {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('name'));
       window.traceManager.trace('Scorecard: Name Changes', 'Renamed parameter items', `<b>Formula:</b> Name Change Rate = ${item.nameChangeCount} / ${item.totalRecords} = <b>${item.nameChangeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_added') {
-      const f = raw.filter(r => (r.Status || '').toLowerCase().includes('add'));
+      const naSet = new Set(item.naRecords || []);
+      const f = raw.filter(r => (r.Status || '').toLowerCase().includes('add') && !naSet.has(r));
       window.traceManager.trace('Scorecard: Added Items', `Newly created tests in ${labels.right} program`, `<b>Formula:</b> Added Rate = ${item.addedCount} / ${item.totalRecords} = <b>${item.addedRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     } else if (traceType === 'item_removed') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('remove'));
@@ -1321,6 +1346,9 @@ class SemiconductorApp {
     } else if (traceType === 'item_limitchange') {
       const f = raw.filter(r => (r.Status || '').toLowerCase().includes('limit'));
       window.traceManager.trace('Scorecard: Limit Changes', 'Modified test limits', `<b>Formula:</b> Limit Change Rate = ${item.limitChangeCount} / ${item.totalRecords} = <b>${item.limitChangeRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
+    } else if (traceType === 'item_na') {
+      const f = item.naRecords || [];
+      window.traceManager.trace('Scorecard: Data Inconsistency (N/A)', 'Status says "Added" but PROPOSED_Test_Num is blank for a PROPOSED_vs_NEW row — the two disagree, so this was reclassified as N/A instead of Added', `<b>Formula:</b> N/A Rate = ${item.naCount} / ${item.totalRecords} = <b>${item.naRate.toFixed(2)}%</b>`, f, null, item.meta.rawName);
     }
   }
 

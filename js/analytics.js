@@ -108,6 +108,8 @@ class SemiconductorAnalytics {
         unitChangeCount: 0,
         numberChangeCount: 0,
         otherChangeCount: 0,
+        naCount: 0,
+        naRecords: [],
         totalChanged: 0,
         changeRate: 0,
         nameChangeRate: 0,
@@ -115,6 +117,7 @@ class SemiconductorAnalytics {
         removedRate: 0,
         limitChangeRate: 0,
         otherChangeRate: 0,
+        naRate: 0,
         netChange: 0,
         impactLevel: 'LOW',
         scorecard: [],
@@ -141,18 +144,35 @@ class SemiconductorAnalytics {
     let unitChangeCount = 0;
     let numberChangeCount = 0;
     let otherChangeCount = 0;
+    let naCount = 0;
 
     const statusMap = {};
     const nameChangeRecords = [];
     const changeRecords = [];
+    const naRecords = [];
 
     rows.forEach(r => {
-      const statusRaw = (r.Status || 'Other').trim();
-      const status = statusRaw.toLowerCase();
+      let statusRaw = (r.Status || 'Other').trim();
+      let status = statusRaw.toLowerCase();
+
+      // Column A ("Comparison") is per-row and can mix OLD_vs_NEW and PROPOSED_vs_NEW
+      // rows within the same file. A PROPOSED_vs_NEW row claiming "Added" only makes
+      // sense if PROPOSED_Test_Num is actually populated (the item exists in the
+      // proposal); if it's blank, the given Status disagrees with the data — reclassify
+      // as N/A rather than counting it as a real Added item.
+      const isProposedRow = String(r.Comparison || '').toUpperCase().includes('PROPOSED');
+      if (isProposedRow && status.includes('add') && !String(r.PROPOSED_Test_Num || '').trim()) {
+        statusRaw = 'N/A';
+        status = 'n/a';
+      }
+
       statusMap[statusRaw] = (statusMap[statusRaw] || 0) + 1;
 
       if (status === 'match') {
         matchCount++;
+      } else if (status === 'n/a' || status === 'na') {
+        naCount++;
+        naRecords.push(r);
       } else {
         changeRecords.push(r);
         if (status === 'name change' || status.includes('name')) {
@@ -183,6 +203,7 @@ class SemiconductorAnalytics {
     const addedRate = totalRecords > 0 ? (addedCount / totalRecords) * 100 : 0;
     const removedRate = totalRecords > 0 ? (removedCount / totalRecords) * 100 : 0;
     const limitChangeRate = totalRecords > 0 ? (limitChangeCount / totalRecords) * 100 : 0;
+    const naRate = totalRecords > 0 ? (naCount / totalRecords) * 100 : 0;
     const otherChangeRate = totalRecords > 0 ? (otherChangeCount / totalRecords) * 100 : 0;
     const netChange = addedCount - removedCount;
 
@@ -298,6 +319,18 @@ class SemiconductorAnalytics {
       }
     ];
 
+    if (naCount > 0) {
+      scorecard.push({
+        metric: 'Data Inconsistency (N/A)',
+        count: naCount,
+        percentage: naRate.toFixed(1) + '%',
+        threshold: '0 items',
+        risk: 'REVIEW',
+        color: 'yellow',
+        traceType: 'item_na'
+      });
+    }
+
     // Overall Assessment
     let overallAssessment = 'PASS';
     let assessmentColor = 'green';
@@ -344,6 +377,8 @@ class SemiconductorAnalytics {
       unitChangeCount,
       numberChangeCount,
       otherChangeCount,
+      naCount,
+      naRecords,
       totalChanged,
       matchRate,
       changeRate,
@@ -352,6 +387,7 @@ class SemiconductorAnalytics {
       removedRate,
       limitChangeRate,
       otherChangeRate,
+      naRate,
       netChange,
       impactLevel,
       scorecard,
